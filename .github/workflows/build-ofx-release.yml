@@ -1,0 +1,118 @@
+# Manual release build only — does NOT run on push, tag, or local archive.
+# GitHub → Actions → "Build OFX release" → Run workflow → pick branch → Run workflow
+name: Build OFX release
+
+on:
+  workflow_dispatch:
+    inputs:
+      macos_universal:
+        description: macOS universal binary (arm64 + x86_64)
+        type: boolean
+        default: true
+
+concurrency:
+  group: build-ofx-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Read VERSION triplet
+        id: version
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install Metal Toolchain
+        run: |
+          set -euo pipefail
+          # Xcode 26+ ships Metal compiler as a separate downloadable component (not on all GHA images).
+          if ! xcrun -sdk macosx metal -v >/dev/null 2>&1; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun -sdk macosx metal -v
+
+      - name: Configure and build
+        run: |
+          set -euo pipefail
+          rm -rf build/macos
+          FAT=ON
+          if [ "${{ inputs.macos_universal }}" != "true" ]; then
+            FAT=OFF
+          fi
+          cmake -S . -B build/macos -DCMAKE_BUILD_TYPE=Release -DOPENTEXTURE_OFX_FAT_ARCHS=${FAT}
+          cmake --build build/macos --target opentexture_all --parallel "$(sysctl -n hw.ncpu)"
+          test -d "release/LSP_Open_Texture_${{ steps.version.outputs.triplet }}_macos"
+
+      - name: Upload macOS release folder
+        uses: actions/upload-artifact@v6
+        with:
+          name: LSP_Open_Texture_${{ steps.version.outputs.triplet }}_macos
+          path: release/LSP_Open_Texture_${{ steps.version.outputs.triplet }}_macos/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: macOS artifact summary
+        if: success()
+        run: |
+          {
+            echo "### macOS build"
+            echo "Download artifact **LSP_Open_Texture_${{ steps.version.outputs.triplet }}_macos** from this run's **Artifacts** section."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-windows:
+    name: Windows
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Read VERSION triplet
+        id: version
+        shell: bash
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76
+        with:
+          cuda: "12.6.3"
+          method: network
+          sub-packages: '["nvcc", "cudart"]'
+
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path build/windows) { Remove-Item -Recurse -Force build/windows }
+          $triplet = '${{ steps.version.outputs.triplet }}'
+          $env:NVCC_PREPEND_FLAGS = '-allow-unsupported-compiler'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) { throw 'Visual Studio with MSVC x64 tools not found' }
+          $vcvars = Join-Path $vsPath 'VC\Auxiliary\Build\vcvars64.bat'
+          cmd /c "`"$vcvars`" && cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl && cmake --build build/windows --target opentexture_all --parallel"
+          $release = Join-Path 'release' "LSP_Open_Texture_${triplet}_windows"
+          if (-not (Test-Path $release)) { throw "Release folder not found: $release" }
+
+      - name: Upload Windows release folder
+        uses: actions/upload-artifact@v6
+        with:
+          name: LSP_Open_Texture_${{ steps.version.outputs.triplet }}_windows
+          path: release/LSP_Open_Texture_${{ steps.version.outputs.triplet }}_windows/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Windows artifact summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo "### Windows build"
+            echo "Download artifact **LSP_Open_Texture_${{ steps.version.outputs.triplet }}_windows** from this run's **Artifacts** section."
+          } >> "$GITHUB_STEP_SUMMARY"

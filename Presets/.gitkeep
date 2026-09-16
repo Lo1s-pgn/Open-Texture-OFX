@@ -1,0 +1,2 @@
+# Factory halation presets (XML) are copied into the bundle at build time.
+# Add your own *.xml files here and rebuild.
