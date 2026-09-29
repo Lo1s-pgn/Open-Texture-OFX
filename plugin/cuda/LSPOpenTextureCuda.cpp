@@ -1,21 +1,18 @@
 #include "LSPOpenTextureCuda.h"
 #include "LSPOpenTextureCudaLaunch.h"
-#include "LSPOpenTextureCudaParams.h"
 #include "LSPOpenTextureFreqEQCuda.h"
 #include "LSPOpenTextureGlareCuda.h"
 
 #include "../core/LSPOpenTextureConstants.h"
 #include "../core/LSPOpenTextureEffectWindow.h"
 #include "../core/LSPOpenTextureGamut.h"
-#include "../core/LSPOpenTextureGlareIdentity.h"
 #include "../core/LSPOpenTextureLog.h"
-#include "../core/LSPOpenTextureMetalParams.h"
+#include "../core/LSPOpenTextureHostParams.h"
 #include "../core/LSPOpenTextureMtfIdentity.h"
 #include "../core/LSPOpenTextureProfile.h"
-#include "../core/LSPOpenTextureTextureFormats.h"
 #include "../core/LSPOpenTextureTfMapping.h"
 #include "../core/LSPOpenTextureVanVliet.h"
-#include "../metal/LSPOpenTextureGlareParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 
 #include <cmath>
 #include <cstring>
@@ -182,29 +179,6 @@ bool encodeMtfPost(float* dstBuffer, const OpenTextureCudaParams& io, const floa
     if (!encodeWindowEdgeReplicateStrided(dstBuffer, io, stream))
         return false;
 
-    LSPOpenTextureMetalParamsHost hostIo{};
-    hostIo.width = io.width;
-    hostIo.height = io.height;
-    hostIo.srcRowFloats = io.srcRowFloats;
-    hostIo.dstRowFloats = io.dstRowFloats;
-    hostIo.inputTransferFunction = io.inputTransferFunction;
-    hostIo.workingTransferFunction = io.workingTransferFunction;
-    hostIo.distribution = io.distribution;
-    hostIo.showDistribution = io.showDistribution;
-    hostIo.exposureLostLin = io.exposureLostLin;
-    hostIo.greenExposureLostLin = io.greenExposureLostLin;
-    hostIo.blueExposureLostLin = io.blueExposureLostLin;
-    std::memcpy(hostIo.invMatrix, io.invMatrix, sizeof(hostIo.invMatrix));
-    std::memcpy(hostIo.inputToDwg, io.inputToDwg, sizeof(hostIo.inputToDwg));
-    std::memcpy(hostIo.dwgToInput, io.dwgToInput, sizeof(hostIo.dwgToInput));
-    std::memcpy(hostIo.cieLumaCoeffs, io.cieLumaCoeffs, sizeof(hostIo.cieLumaCoeffs));
-    hostIo.effectWindowEnabled = io.effectWindowEnabled;
-    hostIo.effectWindowLeft = io.effectWindowLeft;
-    hostIo.effectWindowTop = io.effectWindowTop;
-    hostIo.effectWindowWidth = io.effectWindowWidth;
-    hostIo.effectWindowHeight = io.effectWindowHeight;
-    hostIo.effectWindowShowBorder = io.effectWindowShowBorder;
-
     const size_t regionBytes = static_cast<size_t>(io.height) * static_cast<size_t>(io.dstRowFloats) * sizeof(float);
     const bool needPre = mg < 1.0f - 1.0e-5f;
     if (needPre) {
@@ -217,7 +191,7 @@ bool encodeMtfPost(float* dstBuffer, const OpenTextureCudaParams& io, const floa
     float eqCopy[8];
     std::memcpy(eqCopy, mtfEq, sizeof(eqCopy));
     bool skipUnpack = false;
-    if (!LSPOpenTextureFreqEQ_EncodeCuda(dstBuffer, dstBuffer, hostIo, eqCopy, mtfDisplay, mtfGrey, mtfLumaBlend, &skipUnpack, stream))
+    if (!LSPOpenTextureFreqEQ_EncodeCuda(dstBuffer, dstBuffer, io, eqCopy, mtfDisplay, mtfGrey, mtfLumaBlend, &skipUnpack, stream))
         return false;
     (void)skipUnpack;
 
@@ -247,29 +221,6 @@ bool encodeGlarePost(
     if (!glareEnable || (glareDisplay == 0 && (glareGlobalBlend <= eps || glareStrength <= eps)))
         return true;
 
-    LSPOpenTextureMetalParamsHost hostIo{};
-    hostIo.width = io.width;
-    hostIo.height = io.height;
-    hostIo.srcRowFloats = io.srcRowFloats;
-    hostIo.dstRowFloats = io.dstRowFloats;
-    hostIo.inputTransferFunction = io.inputTransferFunction;
-    hostIo.workingTransferFunction = io.workingTransferFunction;
-    hostIo.distribution = io.distribution;
-    hostIo.showDistribution = io.showDistribution;
-    hostIo.exposureLostLin = io.exposureLostLin;
-    hostIo.greenExposureLostLin = io.greenExposureLostLin;
-    hostIo.blueExposureLostLin = io.blueExposureLostLin;
-    std::memcpy(hostIo.invMatrix, io.invMatrix, sizeof(hostIo.invMatrix));
-    std::memcpy(hostIo.inputToDwg, io.inputToDwg, sizeof(hostIo.inputToDwg));
-    std::memcpy(hostIo.dwgToInput, io.dwgToInput, sizeof(hostIo.dwgToInput));
-    std::memcpy(hostIo.cieLumaCoeffs, io.cieLumaCoeffs, sizeof(hostIo.cieLumaCoeffs));
-    hostIo.effectWindowEnabled = io.effectWindowEnabled;
-    hostIo.effectWindowLeft = io.effectWindowLeft;
-    hostIo.effectWindowTop = io.effectWindowTop;
-    hostIo.effectWindowWidth = io.effectWindowWidth;
-    hostIo.effectWindowHeight = io.effectWindowHeight;
-    hostIo.effectWindowShowBorder = io.effectWindowShowBorder;
-
     LSPOpenTextureGlareParamsHost glare{};
     openTextureGlareBuildHostParams(
         glare,
@@ -291,7 +242,7 @@ bool encodeGlarePost(
         gg = 0.0f;
     else if (gg > 1.0f)
         gg = 1.0f;
-    return LSPOpenTextureGlareCuda::EncodeCuda(dstBuffer, hostIo, glare, gg, stream);
+    return LSPOpenTextureGlareCuda::EncodeCuda(dstBuffer, io, glare, gg, stream);
 }
 
 }
@@ -370,7 +321,7 @@ bool renderHost(
 
     const LSPOpenTextureTfMapping::ResolvedTf tf = LSPOpenTextureTfMapping::resolveTfParams(intensity, hue, saturation);
 
-    LSPOpenTextureMetalParamsHost hostParams{};
+    LSPOpenTextureHostParams hostParams{};
     hostParams.distribution = highlightDistribution;
     hostParams.inputTransferFunction = transferFunction;
     hostParams.showDistribution = showDistribution ? 1 : 0;
@@ -386,10 +337,10 @@ bool renderHost(
     {
         const LSPOpenTextureEffectWindowGeo geo =
             computeOpenTextureEffectWindowGeo(width, height, effectWindowAspect, effectWindowVertical);
-        fillOpenTextureMetalEffectWindow(hostParams, geo, effectWindowEnabled, effectWindowShowBorder);
+        fillOpenTextureHostEffectWindow(hostParams, geo, effectWindowEnabled, effectWindowShowBorder);
     }
 
-    OpenTextureCudaParams p = toCudaParams(hostParams);
+    OpenTextureCudaParams p = hostParams;
     OpenTextureCudaParams ph = p;
 
     const float eps = 1.0e-5f;

@@ -7,7 +7,6 @@
 #include "LSPOpenTextureGamut.h"
 #include "LSPOpenTextureLog.h"
 #include "LSPOpenTextureMtfIdentity.h"
-#include "LSPOpenTextureGlareIdentity.h"
 #include "LSPOpenTextureGlareMapping.h"
 #include "LSPOpenTextureParamSchema.h"
 #include "LSPOpenTextureParamUtils.h"
@@ -19,6 +18,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #if defined(_WIN32)
@@ -36,6 +36,13 @@ bool renderScalesMatchBetweenClips(const OFX::Image& p_Src, const OFX::Image& p_
     const OfxPointD& b = p_Dst.getRenderScale();
     const double e = 1.0e-6;
     return std::fabs(a.x - b.x) <= e && std::fabs(a.y - b.y) <= e;
+}
+
+void setParamsEnabled(bool on, std::initializer_list<OFX::Param*> params) {
+    for (OFX::Param* p : params) {
+        if (p)
+            p->setEnabled(on);
+    }
 }
 
 }
@@ -184,7 +191,7 @@ LSPOpenTexturePlugin::LSPOpenTexturePlugin(OfxImageEffectHandle p_Handle)
             m_SyncingMaxHighlights = false;
         }
     }
-    enforceMinMaxHighlightsOrder(false);
+    enforceMinMaxHighlightsOrder();
     syncMinHighlightsNitsFromUi();
     syncMaxHighlightsNitsFromUi();
     syncEffectWindowChildParamsEnabled();
@@ -206,26 +213,19 @@ void LSPOpenTexturePlugin::syncEffectWindowChildParamsEnabled() {
             presetIdx = presetMax;
     }
     const bool customAspect = presetIdx == kOpenTextureEffectWindowAspectPresetCustom;
-    if (m_EffectWindowAspectPreset)
-        m_EffectWindowAspectPreset->setEnabled(groupOn);
+    setParamsEnabled(groupOn, {m_EffectWindowAspectPreset, m_EffectWindowVertical, m_EffectWindowShowBorder});
     if (m_EffectWindowAspect)
         m_EffectWindowAspect->setEnabled(groupOn && customAspect);
-    if (m_EffectWindowVertical)
-        m_EffectWindowVertical->setEnabled(groupOn);
-    if (m_EffectWindowShowBorder)
-        m_EffectWindowShowBorder->setEnabled(groupOn);
 }
 
 void LSPOpenTexturePlugin::syncHalationOverlayChildParamsEnabled() {
     const bool on = m_HalationEnable ? m_HalationEnable->getValue() : false;
-    if (m_ShowDistribution)
-        m_ShowDistribution->setEnabled(on);
+    setParamsEnabled(on, {m_ShowDistribution});
 }
 
 void LSPOpenTexturePlugin::syncMtfOverlayChildParamsEnabled() {
     const bool on = m_MtfEnable ? m_MtfEnable->getValue() : false;
-    if (m_MtfDisplay)
-        m_MtfDisplay->setEnabled(on);
+    setParamsEnabled(on, {m_MtfDisplay});
 }
 
 void LSPOpenTexturePlugin::syncMinHighlightsNitsFromUi() {
@@ -250,7 +250,7 @@ void LSPOpenTexturePlugin::syncMaxHighlightsNitsFromUi() {
     m_SyncingMaxHighlights = false;
 }
 
-void LSPOpenTexturePlugin::enforceMinMaxHighlightsOrder(bool /*minChanged*/) {
+void LSPOpenTexturePlugin::enforceMinMaxHighlightsOrder() {
     if (!m_GlareThreshold || !m_GlareMaxHighlights || m_SyncingMaxHighlights)
         return;
     double minUi = LSPOpenTextureGlareMapping::defaultMinHighlightsUi();
@@ -269,30 +269,20 @@ void LSPOpenTexturePlugin::enforceMinMaxHighlightsOrder(bool /*minChanged*/) {
 void LSPOpenTexturePlugin::syncGlareChildParamsEnabled() {
     const bool on = m_GlareEnable ? m_GlareEnable->getValue() : false;
     const bool clampOn = m_GlareClampHighlights ? m_GlareClampHighlights->getValue() : false;
-    if (m_GlareResetBtn)
-        m_GlareResetBtn->setEnabled(on);
-    if (m_GlareGlobalBlend)
-        m_GlareGlobalBlend->setEnabled(on);
-    if (m_GlareThreshold)
-        m_GlareThreshold->setEnabled(on);
-    if (m_GlareSmoothness)
-        m_GlareSmoothness->setEnabled(on);
-    if (m_GlareClampHighlights)
-        m_GlareClampHighlights->setEnabled(on);
+    setParamsEnabled(on,
+                     {m_GlareResetBtn,
+                      m_GlareGlobalBlend,
+                      m_GlareThreshold,
+                      m_GlareSmoothness,
+                      m_GlareClampHighlights,
+                      m_GlareStrength,
+                      m_GlareSaturation,
+                      m_GlareTemperature,
+                      m_GlareExposure,
+                      m_GlareSpread,
+                      m_GlareDisplay});
     if (m_GlareMaxHighlights)
         m_GlareMaxHighlights->setEnabled(on && clampOn);
-    if (m_GlareStrength)
-        m_GlareStrength->setEnabled(on);
-    if (m_GlareSaturation)
-        m_GlareSaturation->setEnabled(on);
-    if (m_GlareTemperature)
-        m_GlareTemperature->setEnabled(on);
-    if (m_GlareExposure)
-        m_GlareExposure->setEnabled(on);
-    if (m_GlareSpread)
-        m_GlareSpread->setEnabled(on);
-    if (m_GlareDisplay)
-        m_GlareDisplay->setEnabled(on);
 }
 
 void LSPOpenTexturePlugin::applyEffectWindowAspectFromPresetChoice(double time) {
@@ -320,45 +310,30 @@ void LSPOpenTexturePlugin::applyEffectWindowAspectFromPresetChoice(double time) 
 
 void LSPOpenTexturePlugin::syncHalationChildParamsEnabled() {
     const bool on = m_HalationEnable ? m_HalationEnable->getValue() : true;
-    if (m_HalationResetBtn)
-        m_HalationResetBtn->setEnabled(on);
-    if (m_HalationGlobalBlend)
-        m_HalationGlobalBlend->setEnabled(on);
-    if (m_Intensity)
-        m_Intensity->setEnabled(on);
-    if (m_Size)
-        m_Size->setEnabled(on);
-    if (m_Color)
-        m_Color->setEnabled(on);
-    if (m_Saturation)
-        m_Saturation->setEnabled(on);
-    if (m_Distribution)
-        m_Distribution->setEnabled(on);
+    setParamsEnabled(on,
+                     {m_HalationResetBtn,
+                      m_HalationGlobalBlend,
+                      m_Intensity,
+                      m_Size,
+                      m_Color,
+                      m_Saturation,
+                      m_Distribution});
     syncHalationOverlayChildParamsEnabled();
 }
 
 void LSPOpenTexturePlugin::syncMtfChildParamsEnabled() {
     const bool on = m_MtfEnable ? m_MtfEnable->getValue() : false;
-    if (m_MtfResetBtn)
-        m_MtfResetBtn->setEnabled(on);
-    if (m_MtfGlobalBlend)
-        m_MtfGlobalBlend->setEnabled(on);
-    if (m_MtfGlobalStrength)
-        m_MtfGlobalStrength->setEnabled(on);
-    if (m_MtfEQ1)
-        m_MtfEQ1->setEnabled(on);
-    if (m_MtfEQ2)
-        m_MtfEQ2->setEnabled(on);
-    if (m_MtfEQ3)
-        m_MtfEQ3->setEnabled(on);
-    if (m_MtfEQ4)
-        m_MtfEQ4->setEnabled(on);
-    if (m_MtfEQ5)
-        m_MtfEQ5->setEnabled(on);
-    if (m_MtfEQ6)
-        m_MtfEQ6->setEnabled(on);
-    if (m_MtfLumaBlend)
-        m_MtfLumaBlend->setEnabled(on);
+    setParamsEnabled(on,
+                     {m_MtfResetBtn,
+                      m_MtfGlobalBlend,
+                      m_MtfGlobalStrength,
+                      m_MtfEQ1,
+                      m_MtfEQ2,
+                      m_MtfEQ3,
+                      m_MtfEQ4,
+                      m_MtfEQ5,
+                      m_MtfEQ6,
+                      m_MtfLumaBlend});
     syncMtfOverlayChildParamsEnabled();
 }
 
@@ -522,7 +497,7 @@ void LSPOpenTexturePlugin::changedParam(const OFX::InstanceChangedArgs& p_Args, 
     }
     if (paramLeafIs(p_ParamName, "halationGlareThreshold")) {
         if (!m_SyncingMaxHighlights) {
-            enforceMinMaxHighlightsOrder(true);
+            enforceMinMaxHighlightsOrder();
             syncMinHighlightsNitsFromUi();
         }
         bumpLookPresetToCustomIfNeeded(p_Args, p_ParamName);
@@ -540,7 +515,7 @@ void LSPOpenTexturePlugin::changedParam(const OFX::InstanceChangedArgs& p_Args, 
                     m_SyncingMaxHighlights = false;
                 }
             }
-            enforceMinMaxHighlightsOrder(false);
+            enforceMinMaxHighlightsOrder();
             syncMaxHighlightsNitsFromUi();
             syncMinHighlightsNitsFromUi();
         }
@@ -665,7 +640,7 @@ bool LSPOpenTexturePlugin::isIdentity(const OFX::IsIdentityArguments& p_Args, OF
         glareDisplay = 2;
 
     const bool glareActive =
-        (glareDisplay != 0) || !openTextureGlareIsIdentity(glareEnable, static_cast<float>(glareGlobalBlend), static_cast<float>(glareStrength));
+        (glareDisplay != 0) || !LSPOpenTextureGlareMapping::isIdentity(glareEnable, static_cast<float>(glareGlobalBlend), static_cast<float>(glareStrength));
 
     if (!halationActive && !mtfActive && !glareActive) {
         p_IdentityClip = m_SrcClip;

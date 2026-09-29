@@ -21,7 +21,7 @@
 #include "../core/LSPOpenTextureTfMapping.h"
 #include "../core/LSPOpenTextureGamut.h"
 #include "../core/LSPOpenTextureConstants.h"
-#include "../core/LSPOpenTextureMetalParams.h"
+#include "../core/LSPOpenTextureHostParams.h"
 #include "../core/LSPOpenTextureEffectWindow.h"
 #include "../core/LSPOpenTextureProfile.h"
 #include "../core/LSPOpenTextureVanVliet.h"
@@ -33,7 +33,7 @@
 
 namespace {
 
-using OpenTextureMetalParams = LSPOpenTextureMetalParamsHost;
+using OpenTextureMetalParams = LSPOpenTextureHostParams;
 
 struct MPSCache {
     id<MTLTexture> texOut = nil;
@@ -802,7 +802,7 @@ bool renderHost(
     {
         const LSPOpenTextureEffectWindowGeo geo =
             computeOpenTextureEffectWindowGeo(width, height, effectWindowAspect, effectWindowVertical);
-        fillOpenTextureMetalEffectWindow(p, geo, effectWindowEnabled, effectWindowShowBorder);
+        fillOpenTextureHostEffectWindow(p, geo, effectWindowEnabled, effectWindowShowBorder);
     }
 
     OpenTextureMetalParams ph = p;

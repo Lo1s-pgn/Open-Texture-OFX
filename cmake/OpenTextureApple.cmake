@@ -43,22 +43,27 @@ set(METAL_FREQ_AIR "${OPENTEXTURE_BUILD_ROOT}/LSPOpenTextureFreqEQ.air")
 set(METAL_GLARE_AIR "${OPENTEXTURE_BUILD_ROOT}/LSPOpenTextureGlare.air")
 set(METAL_LIB "${OPENTEXTURE_BUILD_ROOT}/LSPOpenTextureMetal.metallib")
 
+set(METAL_TRANSFERS_INC "${CMAKE_SOURCE_DIR}/plugin/core/LSPOpenTextureTransfers.inc")
+
 add_custom_command(
   OUTPUT "${METAL_MAIN_AIR}"
-  COMMAND "${XCRUN_EXECUTABLE}" -sdk macosx metal -c "${METAL_MAIN_SRC}" -o "${METAL_MAIN_AIR}" -I"${CMAKE_SOURCE_DIR}/plugin/metal"
-  DEPENDS "${METAL_MAIN_SRC}" "${METAL_COMMON}"
+  COMMAND "${XCRUN_EXECUTABLE}" -sdk macosx metal -c "${METAL_MAIN_SRC}" -o "${METAL_MAIN_AIR}"
+          "-I${CMAKE_SOURCE_DIR}/plugin/metal" "-I${CMAKE_SOURCE_DIR}/plugin/core"
+  DEPENDS "${METAL_MAIN_SRC}" "${METAL_COMMON}" "${METAL_TRANSFERS_INC}"
   VERBATIM
 )
 add_custom_command(
   OUTPUT "${METAL_FREQ_AIR}"
-  COMMAND "${XCRUN_EXECUTABLE}" -sdk macosx metal -c "${METAL_FREQ_SRC}" -o "${METAL_FREQ_AIR}" -I"${CMAKE_SOURCE_DIR}/plugin/metal"
-  DEPENDS "${METAL_FREQ_SRC}" "${METAL_COMMON}"
+  COMMAND "${XCRUN_EXECUTABLE}" -sdk macosx metal -c "${METAL_FREQ_SRC}" -o "${METAL_FREQ_AIR}"
+          "-I${CMAKE_SOURCE_DIR}/plugin/metal" "-I${CMAKE_SOURCE_DIR}/plugin/core"
+  DEPENDS "${METAL_FREQ_SRC}" "${METAL_COMMON}" "${METAL_TRANSFERS_INC}"
   VERBATIM
 )
 add_custom_command(
   OUTPUT "${METAL_GLARE_AIR}"
-  COMMAND "${XCRUN_EXECUTABLE}" -sdk macosx metal -c "${METAL_GLARE_SRC}" -o "${METAL_GLARE_AIR}" -I"${CMAKE_SOURCE_DIR}/plugin/metal"
-  DEPENDS "${METAL_GLARE_SRC}" "${METAL_COMMON}"
+  COMMAND "${XCRUN_EXECUTABLE}" -sdk macosx metal -c "${METAL_GLARE_SRC}" -o "${METAL_GLARE_AIR}"
+          "-I${CMAKE_SOURCE_DIR}/plugin/metal" "-I${CMAKE_SOURCE_DIR}/plugin/core"
+  DEPENDS "${METAL_GLARE_SRC}" "${METAL_COMMON}" "${METAL_TRANSFERS_INC}"
   VERBATIM
 )
 add_custom_command(

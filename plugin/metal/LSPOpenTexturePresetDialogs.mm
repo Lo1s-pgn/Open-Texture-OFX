@@ -48,7 +48,7 @@ static std::string LSPOpenTextureShowOpenPresetDialogImpl() {
         [panel setAllowsMultipleSelection:NO];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        [panel setAllowedFileTypes:@[ @"xml", @"json" ]];
+        [panel setAllowedFileTypes:@[ @"xml" ]];
 #pragma clang diagnostic pop
         if ([panel runModal] == NSModalResponseOK) {
             NSURL* url = [[panel URLs] firstObject];

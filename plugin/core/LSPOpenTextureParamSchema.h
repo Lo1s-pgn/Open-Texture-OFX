@@ -63,50 +63,34 @@ inline std::string getParamNameFromStableId(int id) {
 }
 
 inline bool isPresetKeyNeverLoad(const std::string& name) {
-    if (name == "halationShowDistribution")
-        return true;
-    if (name == "halationGlareDisplay")
-        return true;
-    if (name == "halationMtfDisplay")
-        return true;
-    if (name == "halationEffectWindowEnable")
-        return true;
-    if (name == "halationEffectWindowAspect")
-        return true;
-    if (name == "halationEffectWindowVertical")
-        return true;
-    if (name == "halationEffectWindowAspectPreset")
-        return true;
-    if (name == "halationEffectWindowShowBorder")
-        return true;
-    if (name == "halationTransferFunction")
-        return true;
-    if (name == "halationInputGamut")
-        return true;
-    if (name == "halationLookPresetFolder")
-        return true;
-    if (name == "halationLookPreset")
-        return true;
-    if (name == "halationExportPreset")
-        return true;
-    if (name == "halationImportPreset")
-        return true;
-    if (name == "halationOpenPresetFolder")
-        return true;
-    if (name == "halationRefreshPresets")
-        return true;
-    if (name == "halationResetHalation")
-        return true;
-    if (name == "halationResetMtf")
-        return true;
-    if (name == "halationResetEffectWindow")
-        return true;
-    if (name == "halationResetGlare")
-        return true;
-    if (name == "halationGlareMaxHighlightsNits")
-        return true;
-    if (name == "halationGlareMinHighlightsNits")
-        return true;
+    static const char* kNeverLoad[] = {
+        "halationShowDistribution",
+        "halationGlareDisplay",
+        "halationMtfDisplay",
+        "halationEffectWindowEnable",
+        "halationEffectWindowAspect",
+        "halationEffectWindowVertical",
+        "halationEffectWindowAspectPreset",
+        "halationEffectWindowShowBorder",
+        "halationTransferFunction",
+        "halationInputGamut",
+        "halationLookPresetFolder",
+        "halationLookPreset",
+        "halationExportPreset",
+        "halationImportPreset",
+        "halationOpenPresetFolder",
+        "halationRefreshPresets",
+        "halationResetHalation",
+        "halationResetMtf",
+        "halationResetEffectWindow",
+        "halationResetGlare",
+        "halationGlareMaxHighlightsNits",
+        "halationGlareMinHighlightsNits",
+    };
+    for (const char* key : kNeverLoad) {
+        if (name == key)
+            return true;
+    }
     return false;
 }
 

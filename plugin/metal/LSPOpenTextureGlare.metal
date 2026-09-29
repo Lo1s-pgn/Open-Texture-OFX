@@ -2,6 +2,7 @@
 using namespace metal;
 #include "LSPOpenTextureMetalCommon.metal"
 
+// Must match LSPOpenTextureGlareParamsHost field order (plugin/core).
 struct OpenTextureGlareParams {
     float threshold;
     float smoothness;
@@ -29,8 +30,6 @@ constant int kGlareDisplaySource = 1;
 constant int kGlareDisplayDiffusion = 2;
 
 constant int kGlareQualityHigh = 0;
-constant int kGlareQualityMedium = 1;
-constant int kGlareQualityLow = 2;
 
 inline float glareExtractHighlightV(float v, float minL, float maxL, float smoothness, int clampEnabled) {
     float src = max(v, 0.0f);
@@ -164,10 +163,7 @@ kernel void k_glare_highlights(texture2d<float, access::sample> inputTex [[textu
     if (gp.quality == kGlareQualityHigh) {
         float2 uv = (float2(gid) + 0.5f) / float2(iw, ih);
         color = inputTex.sample(smp, uv);
-    } else if (gp.quality == kGlareQualityMedium) {
-        float2 uv = (float2(gid) * 2.0f + float2(1.0f)) / float2(iw, ih);
-        color = inputTex.sample(smp, uv);
-    } else if (gp.quality == kGlareQualityLow) {
+    } else {
         float2 ll = (float2(gid) * 4.0f + float2(1.0f)) / float2(iw, ih);
         float2 lr = (float2(gid) * 4.0f + float2(3.0f, 1.0f)) / float2(iw, ih);
         float2 ul = (float2(gid) * 4.0f + float2(1.0f, 3.0f)) / float2(iw, ih);

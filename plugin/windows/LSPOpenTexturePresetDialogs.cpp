@@ -100,7 +100,7 @@ std::string LSPOpenTextureShowOpenPresetDialog() {
     if (FAILED(hr) || !dialog)
         return result;
 
-    COMDLG_FILTERSPEC filter[] = {{L"Preset files", L"*.xml;*.json"}};
+    COMDLG_FILTERSPEC filter[] = {{L"XML preset", L"*.xml"}};
     dialog->SetFileTypes(1, filter);
     dialog->SetTitle(L"Import Open Texture Preset");
 

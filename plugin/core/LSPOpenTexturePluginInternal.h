@@ -26,7 +26,7 @@ private:
     void syncGlareChildParamsEnabled();
     void syncMinHighlightsNitsFromUi();
     void syncMaxHighlightsNitsFromUi();
-    void enforceMinMaxHighlightsOrder(bool minChanged);
+    void enforceMinMaxHighlightsOrder();
     void applyEffectWindowAspectFromPresetChoice(double time);
 
     void syncLookPresetMenuFromDisk(double time, const std::string* forceSelectPath);

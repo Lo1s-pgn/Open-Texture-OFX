@@ -1,5 +1,5 @@
 #include "LSPOpenTextureGamut.h"
-#include "LSPOpenTextureMetalParams.h"
+#include "LSPOpenTextureHostParams.h"
 
 #include <cmath>
 #include <cstring>
@@ -115,7 +115,7 @@ void halationComputeDwgToInput(int inputGamut, float out9[9]) {
     mulMat3(invIn, kInToXyz[kOpenTextureInputGamutDefault], out9);
 }
 
-void openTextureFillWorkingGamutParams(int inputGamut, LSPOpenTextureMetalParamsHost& p) {
+void openTextureFillWorkingGamutParams(int inputGamut, LSPOpenTextureHostParams& p) {
     halationComputeInputToDwg(inputGamut, p.inputToDwg);
     halationComputeDwgToInput(inputGamut, p.dwgToInput);
     halationCieYLumaCoeffsDwg(p.cieLumaCoeffs);

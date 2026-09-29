@@ -1,4 +1,5 @@
 #include "LSPOpenTexturePresetHelpers.h"
+#include "LSPOpenTextureLog.h"
 #include "version_gen.h"
 
 #include <algorithm>
@@ -9,40 +10,8 @@
 #include <mutex>
 #include <sstream>
 #include <string_view>
-#ifndef _WIN32
-#include <dirent.h>
-#endif
-#include <sys/stat.h>
-#ifdef __APPLE__
-#include <dlfcn.h>
-#include <limits.h>
-#endif
 
 namespace {
-
-#ifdef __APPLE__
-static void lspOpenTexturePresetHelpersBundleAnchor() {}
-
-static std::string tryPluginImageResourcesPath() {
-    Dl_info info{};
-    if (dladdr(reinterpret_cast<void*>(&lspOpenTexturePresetHelpersBundleAnchor), &info) == 0 || !info.dli_fname)
-        return "";
-    std::string p = info.dli_fname;
-    char resolved[PATH_MAX];
-    if (realpath(p.c_str(), resolved))
-        p = resolved;
-    const char* marker = ".ofx.bundle";
-    size_t pos = p.find(marker);
-    if (pos == std::string::npos)
-        return "";
-    std::string bundleRoot = p.substr(0, pos + std::strlen(marker));
-    std::string res = bundleRoot + "/Contents/Resources";
-    struct stat st{};
-    if (stat(res.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
-        return res;
-    return "";
-}
-#endif
 
 static std::mutex g_ofxBundleRootMutex;
 static std::string g_ofxPluginBundleRoot;
@@ -127,48 +96,6 @@ static std::string readTagAttr(std::string_view tag, const char* attrName) {
     while (end < tag.size() && tag[end] != '"')
         ++end;
     return xmlUnescapeAttr(tag.substr(p, end - p));
-}
-
-static bool loadPresetParamsFromJsonText(const std::string& json, std::map<std::string, std::string>& params) {
-    size_t paramsStart = json.find("\"parameters\"");
-    if (paramsStart == std::string::npos)
-        return false;
-    paramsStart = json.find("{", paramsStart);
-    if (paramsStart == std::string::npos)
-        return false;
-    size_t paramsEnd = json.find_last_of("}");
-    if (paramsEnd == std::string::npos || paramsEnd <= paramsStart)
-        return false;
-    std::string paramsJson = json.substr(paramsStart, paramsEnd - paramsStart + 1);
-    size_t pos = 0;
-    while ((pos = paramsJson.find("\"", pos)) != std::string::npos) {
-        size_t keyStart = pos + 1;
-        size_t keyEnd = paramsJson.find("\"", keyStart);
-        if (keyEnd == std::string::npos)
-            break;
-        std::string key = paramsJson.substr(keyStart, keyEnd - keyStart);
-        pos = paramsJson.find(":", keyEnd);
-        if (pos == std::string::npos)
-            break;
-        pos++;
-        while (pos < paramsJson.length() && (paramsJson[pos] == ' ' || paramsJson[pos] == '\t'))
-            pos++;
-        size_t valueStart = pos;
-        size_t valueEnd = valueStart;
-        if (paramsJson[valueStart] == '"') {
-            valueStart++;
-            valueEnd = paramsJson.find("\"", valueStart);
-            if (valueEnd == std::string::npos)
-                break;
-        } else {
-            while (valueEnd < paramsJson.length() && paramsJson[valueEnd] != ',' && paramsJson[valueEnd] != '}' &&
-                   paramsJson[valueEnd] != '\n' && paramsJson[valueEnd] != ' ')
-                valueEnd++;
-        }
-        params[key] = paramsJson.substr(valueStart, valueEnd - valueStart);
-        pos = valueEnd + 1;
-    }
-    return true;
 }
 
 static bool loadPresetParamsFromXmlText(const std::string& content, std::map<std::string, std::string>& params) {
@@ -259,11 +186,13 @@ std::string getOpenTextureBundleResourcesPath() {
                 return res;
         }
     }
-#ifdef __APPLE__
-    std::string fromImage = tryPluginImageResourcesPath();
-    if (!fromImage.empty())
-        return fromImage;
-#endif
+    std::string bundleRoot = LSPOpenTextureLog::getPluginBundleRootPath();
+    if (!bundleRoot.empty()) {
+        std::string res = bundleRoot + "/Contents/Resources";
+        std::error_code ec;
+        if (std::filesystem::is_directory(res, ec))
+            return res;
+    }
     return "";
 }
 
@@ -272,34 +201,24 @@ std::string getOpenTextureUserPresetsPath() {
     const char* appData = getenv("APPDATA");
     if (!appData || appData[0] == '\0')
         return {};
-    std::string appFolder = std::string(appData) + "\\LSP\\OpenTexture";
-    std::string presetsDir = appFolder + "\\Presets";
+    std::string presetsDir = std::string(appData) + "\\LSP\\OpenTexture\\Presets";
+#elif defined(__APPLE__)
+    const char* home = getenv("HOME");
+    if (!home || home[0] == '\0')
+        return {};
+    std::string presetsDir = std::string(home) + "/Library/Application Support/LSP/OpenTexture/Presets";
+#else
+    return {};
+#endif
     std::error_code ec;
     std::filesystem::create_directories(presetsDir, ec);
     return presetsDir;
-#elif defined(__APPLE__)
-    const char* home = getenv("HOME");
-    if (home) {
-        std::string homeStr(home);
-        std::string appFolder = homeStr + "/Library/Application Support/LSP/OpenTexture";
-        std::string presetsDir = appFolder + "/Presets";
-        struct stat st;
-        if (stat(presetsDir.c_str(), &st) != 0) {
-            mkdir((homeStr + "/Library/Application Support/LSP").c_str(), 0755);
-            mkdir(appFolder.c_str(), 0755);
-            mkdir(presetsDir.c_str(), 0755);
-        }
-        return presetsDir;
-    }
-#endif
-    return "";
 }
 
 std::vector<std::string> scanOpenTexturePresetDirectory(const std::string& dirPath) {
     std::map<std::string, std::string> byBaseName;
     if (dirPath.empty())
         return {};
-#ifdef _WIN32
     namespace fs = std::filesystem;
     std::error_code ec;
     if (!fs::is_directory(dirPath, ec))
@@ -313,30 +232,8 @@ std::vector<std::string> scanOpenTexturePresetDirectory(const std::string& dirPa
         if (endsWithExtension(filename, ".xml")) {
             std::string full = entry.path().string();
             byBaseName[presetBasenameOnly(full)] = full;
-        } else if (endsWithExtension(filename, ".json")) {
-            std::string base = presetBasenameOnly(filename);
-            if (byBaseName.find(base) == byBaseName.end())
-                byBaseName[base] = entry.path().string();
         }
     }
-#else
-    DIR* d = opendir(dirPath.c_str());
-    if (!d)
-        return {};
-    struct dirent* entry;
-    while ((entry = readdir(d)) != nullptr) {
-        std::string filename(entry->d_name);
-        if (endsWithExtension(filename, ".xml")) {
-            std::string full = dirPath + "/" + filename;
-            byBaseName[presetBasenameOnly(full)] = full;
-        } else if (endsWithExtension(filename, ".json")) {
-            std::string base = presetBasenameOnly(filename);
-            if (byBaseName.find(base) == byBaseName.end())
-                byBaseName[base] = dirPath + "/" + filename;
-        }
-    }
-    closedir(d);
-#endif
     std::vector<std::string> presets;
     presets.reserve(byBaseName.size());
     for (const auto& p : byBaseName)
@@ -422,7 +319,7 @@ bool loadOpenTexturePresetFromBuffer(const std::string& body, std::map<std::stri
         return loadPresetParamsFromXmlText(t, params);
     if (t.find("<lspPreset") != std::string::npos)
         return loadPresetParamsFromXmlText(t, params);
-    return loadPresetParamsFromJsonText(t, params);
+    return false;
 }
 
 bool saveOpenTexturePresetToFile(const std::string& filepath, const std::map<std::string, std::string>& params) {

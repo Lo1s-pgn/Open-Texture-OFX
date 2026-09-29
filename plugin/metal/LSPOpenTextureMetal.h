@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-#include "LSPOpenTextureGlareParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 
 namespace LSPOpenTextureMetal {
 

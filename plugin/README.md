@@ -13,11 +13,13 @@ Metal-first OFX filter (macOS): halation bloom + optional six-band MTF curve + D
 | `LSPOpenTextureProcessor.cpp` | `ImageProcessor`: macOS `processImagesMetal`, Windows `processImagesCuda`, or CPU halation fallback |
 | `LSPOpenTextureMtfIdentity.h` | MTF identity check + **UI→effective EQ** (`openTextureMtfBuildEffectiveEq`) |
 | `LSPOpenTextureMtfPyramid.h` | MTF half-res pyramid blur plan (σ ladder) |
-| `LSPOpenTextureGlareMapping.h` | Min/Max Highlights log-nits maps, spread/threshold UI, bloom chain plan |
-| `LSPOpenTextureGlareIdentity.h` | Glare identity bypass |
+| `LSPOpenTextureGlareMapping.h` | Min/Max Highlights log-nits maps, spread/threshold UI, bloom chain plan, glare identity |
 | `LSPOpenTextureParamSchema.h` | Stable numeric preset IDs (≥2000) |
 | `LSPOpenTextureProfile.h` | Optional stage timers (`OPEN_TEXTURE_PROFILE=1`) |
-| `LSPOpenTextureTextureFormats.h` | FP32 intermediate buffer size helpers |
+| `LSPOpenTextureVanVliet.h` | Van Vliet coeffs + FP32 buffer size helpers |
+| `LSPOpenTextureHostParams.h` | Shared host/CUDA render POD |
+| `LSPOpenTextureTransfers.inc` | Shared TF encode/decode (CPU, Metal, CUDA) |
+| `LSPOpenTextureGlareParams.h` | Host glare param build |
 | `LSPOpenTextureConstants.h` | Plugin id, URLs, reference diagonal, MTF base-freq scale |
 | `LSPOpenTextureEffectWindow.h` | Aspect window geometry (cover-fit, edge replicate, black mask) |
 | `LSPOpenTextureGamut.*` / `LSPOpenTextureTfMapping.*` | Input gamut/transfer ↔ DWG working space |
@@ -33,7 +35,6 @@ Metal-first OFX filter (macOS): halation bloom + optional six-band MTF curve + D
 | `LSPOpenTextureFreqEQ.metal` | Paul Dore Lab L\* (working RGB as Rec.709), fused presplit / preview |
 | `LSPOpenTextureGlareBridge.mm` | Bloom glare bridge: MPS pyramid blur, tent upscale, mix |
 | `LSPOpenTextureGlare.metal` | Glare decode, highlights, bloom down/up, exposure shift, mix+encode |
-| `LSPOpenTextureGlareParams.h` | Host param build (`openTextureGlareBuildHostParams`) |
 
 Bundled as `LSPOpenTextureMetal.metallib` in the macOS `.ofx.bundle` Resources folder.
 

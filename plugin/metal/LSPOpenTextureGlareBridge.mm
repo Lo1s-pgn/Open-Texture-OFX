@@ -3,9 +3,9 @@
 #import <MetalPerformanceShaders/MetalPerformanceShaders.h>
 
 #include "LSPOpenTextureGlareBridge.h"
-#include "LSPOpenTextureGlareParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 #include "../core/LSPOpenTextureGlareMapping.h"
-#include "../core/LSPOpenTextureMetalParams.h"
+#include "../core/LSPOpenTextureHostParams.h"
 #include "LSPOpenTextureLog.h"
 
 #include <atomic>
@@ -587,14 +587,14 @@ static bool encodeWindowEdgeReplicateTexture(
     id<MTLCommandBuffer> cmd,
     id<MTLTexture> tex,
     id<MTLComputePipelineState> pso,
-    const LSPOpenTextureMetalParamsHost& io) {
+    const LSPOpenTextureHostParams& io) {
     if (!io.effectWindowEnabled || tex == nil || pso == nil)
         return true;
     id<MTLComputeCommandEncoder> enc = [cmd computeCommandEncoder];
     if (enc == nil)
         return false;
     [enc setTexture:tex atIndex:0];
-    [enc setBytes:&io length:sizeof(LSPOpenTextureMetalParamsHost) atIndex:0];
+    [enc setBytes:&io length:sizeof(LSPOpenTextureHostParams) atIndex:0];
     glareDispatch2D(enc, pso, io.width, io.height);
     [enc endEncoding];
     return true;
@@ -607,7 +607,7 @@ static bool encodeGlobalBlendExternal(
     id<MTLBuffer> dst,
     size_t dstOffset,
     id<MTLComputePipelineState> globalBlendPso,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     float mixEffect) {
     if (globalBlendPso == nil || cmd == nil)
         return false;
@@ -621,7 +621,7 @@ static bool encodeGlobalBlendExternal(
         return false;
     [enc setBuffer:src offset:srcOffset atIndex:0];
     [enc setBuffer:dst offset:dstOffset atIndex:1];
-    [enc setBytes:&io length:sizeof(LSPOpenTextureMetalParamsHost) atIndex:2];
+    [enc setBytes:&io length:sizeof(LSPOpenTextureHostParams) atIndex:2];
     [enc setBytes:&g length:sizeof(float) atIndex:3];
     glareDispatch2D(enc, globalBlendPso, io.width, io.height);
     [enc endEncoding];
@@ -635,7 +635,7 @@ bool LSPOpenTextureGlare_EncodeToCommandBuffer(
     id<MTLDevice> device,
     id<MTLBuffer> dstStrided,
     size_t dstOffset,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const LSPOpenTextureGlareParamsHost& glare,
     float globalBlend,
     id<MTLComputePipelineState> windowEdgeReplicateTexturePso,
@@ -678,7 +678,7 @@ bool LSPOpenTextureGlare_EncodeToCommandBuffer(
             return false;
         [enc setBuffer:dstStrided offset:dstOffset atIndex:0];
         [enc setTexture:gGlareScratch.rgbLinFull atIndex:0];
-        [enc setBytes:&io length:sizeof(LSPOpenTextureMetalParamsHost) atIndex:2];
+        [enc setBytes:&io length:sizeof(LSPOpenTextureHostParams) atIndex:2];
         glareDispatch2D(enc, gGlareKernels.decodeToLin, io.width, io.height);
         [enc endEncoding];
     }
@@ -707,7 +707,7 @@ bool LSPOpenTextureGlare_EncodeToCommandBuffer(
         [enc setTexture:gGlareScratch.rgbLinFull atIndex:0];
         [enc setTexture:gGlareScratch.highlightsFullRes atIndex:1];
         [enc setBytes:&glareFull length:sizeof(LSPOpenTextureGlareParamsHost) atIndex:0];
-        [enc setBytes:&io length:sizeof(LSPOpenTextureMetalParamsHost) atIndex:1];
+        [enc setBytes:&io length:sizeof(LSPOpenTextureHostParams) atIndex:1];
         glareDispatch2D(enc, gGlareKernels.highlightsFloat, io.width, io.height);
         [enc endEncoding];
 
@@ -720,7 +720,7 @@ bool LSPOpenTextureGlare_EncodeToCommandBuffer(
             [enc setTexture:gGlareScratch.rgbLinFull atIndex:0];
             [enc setTexture:gGlareScratch.highlights atIndex:1];
             [enc setBytes:&glare length:sizeof(LSPOpenTextureGlareParamsHost) atIndex:0];
-            [enc setBytes:&io length:sizeof(LSPOpenTextureMetalParamsHost) atIndex:1];
+            [enc setBytes:&io length:sizeof(LSPOpenTextureHostParams) atIndex:1];
             glareDispatch2D(enc, gGlareKernels.highlights, hiW, hiH);
             [enc endEncoding];
         }
@@ -765,7 +765,7 @@ bool LSPOpenTextureGlare_EncodeToCommandBuffer(
         [enc setBuffer:dstStrided offset:dstOffset atIndex:0];
         [enc setBuffer:dstStrided offset:dstOffset atIndex:1];
         [enc setBytes:&glare length:sizeof(LSPOpenTextureGlareParamsHost) atIndex:2];
-        [enc setBytes:&io length:sizeof(LSPOpenTextureMetalParamsHost) atIndex:3];
+        [enc setBytes:&io length:sizeof(LSPOpenTextureHostParams) atIndex:3];
         glareDispatch2D(enc, gGlareKernels.mixEncode, io.width, io.height);
         [enc endEncoding];
     }

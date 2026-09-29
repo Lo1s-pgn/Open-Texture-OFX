@@ -14,7 +14,7 @@ void halationComputeInputToDwg(int inputGamut, float out9[9]);
 
 void halationComputeDwgToInput(int inputGamut, float out9[9]);
 
-struct LSPOpenTextureMetalParamsHost;
-void openTextureFillWorkingGamutParams(int inputGamut, LSPOpenTextureMetalParamsHost& p);
+struct LSPOpenTextureHostParams;
+void openTextureFillWorkingGamutParams(int inputGamut, LSPOpenTextureHostParams& p);
 
 #endif

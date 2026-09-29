@@ -1,6 +1,5 @@
 #include "LSPOpenTextureCudaCommon.cuh"
 #include "../core/LSPOpenTextureVanVliet.h"
-#include "../core/LSPOpenTextureTextureFormats.h"
 
 #include <algorithm>
 #include <cuda_runtime.h>

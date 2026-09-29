@@ -6,7 +6,7 @@
 #include "../core/LSPOpenTextureMtfIdentity.h"
 #include "../core/LSPOpenTextureMtfPyramid.h"
 #include "../core/LSPOpenTextureProfile.h"
-#include "../core/LSPOpenTextureMetalParams.h"
+#include "../core/LSPOpenTextureHostParams.h"
 #include "LSPOpenTextureConstants.h"
 #include "LSPOpenTextureLog.h"
 
@@ -104,7 +104,6 @@ struct ResCache {
 };
 
 struct PyramidPlan {
-    bool usePyramid = false;
     int levels = 0;
     float mpsSigma = 0.0f;
 };
@@ -373,7 +372,6 @@ static void fqComputeBandSigmas(int width, int height, float baseBlur, float out
 static PyramidPlan fqPyramidPlan(float sigma, int bandIndex) {
     const OpenTextureMtfPyramidPlan shared = openTextureMtfPyramidPlan(sigma, bandIndex);
     PyramidPlan plan{};
-    plan.usePyramid = shared.usePyramid;
     plan.levels = shared.levels;
     plan.mpsSigma = shared.mpsSigma;
     return plan;
@@ -427,10 +425,6 @@ static void fqComputeBlurNeeded(const float eq[6], int displaySwitch, bool needB
 
 static bool fqEncodeSingleBandBlur(id<MTLCommandBuffer> cmd, id<MTLDevice> device, int bandIndex, float sigma) {
     const PyramidPlan plan = fqPyramidPlan(sigma, bandIndex);
-    if (!plan.usePyramid) {
-        [gMps.blur[bandIndex] encodeToCommandBuffer:cmd sourceTexture:gMps.lSource destinationTexture:gMps.bandBlur[bandIndex]];
-        return true;
-    }
     MPSImageGaussianBlur* pyramidOp = fqGetPyramidBlurOp(device, plan.mpsSigma);
     if (pyramidOp == nil)
         return false;
@@ -477,7 +471,7 @@ static bool fqEncodeFreqEQBody(
     size_t srcOffset,
     id<MTLBuffer> dstStrided,
     size_t dstOffset,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const float p_EQ[8],
     int p_Switch,
     int p_Grey,
@@ -619,7 +613,7 @@ bool LSPOpenTextureFreqEQ_EncodeToCommandBuffer(
     size_t srcOffset,
     id<MTLBuffer> dstStrided,
     size_t dstOffset,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const float eq[8],
     int displaySwitch,
     int grey,

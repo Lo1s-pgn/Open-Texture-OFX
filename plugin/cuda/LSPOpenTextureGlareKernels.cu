@@ -1,6 +1,5 @@
 #include "LSPOpenTextureCudaCommon.cuh"
-#include "LSPOpenTextureGlareCudaParams.h"
-#include "../metal/LSPOpenTextureGlareParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 
 #include <algorithm>
 #include <cuda_runtime.h>
@@ -11,8 +10,6 @@ constexpr int kGlareDisplayRender = 0;
 constexpr int kGlareDisplaySource = 1;
 constexpr int kGlareDisplayDiffusion = 2;
 constexpr int kGlareQualityHigh = 0;
-constexpr int kGlareQualityMedium = 1;
-constexpr int kGlareQualityLow = 2;
 
 __device__ __forceinline__ float3 otReadPackedRGB(const float* buf, int w, int x, int y) {
     const int i = (y * w + x) * 4;
@@ -110,7 +107,7 @@ __device__ float otGlareLog1p(float x) {
     return logf(1.0f + fmaxf(x, 0.0f));
 }
 
-__device__ float otGlareHighlightAmount(float3 rgbLin, const OpenTextureGlareParamsCuda& gp) {
+__device__ float otGlareHighlightAmount(float3 rgbLin, const LSPOpenTextureGlareParamsHost& gp) {
     float h, s, v;
     otGlareRgbToHsv(make_float3(fmaxf(rgbLin.x, 0.0f), fmaxf(rgbLin.y, 0.0f), fmaxf(rgbLin.z, 0.0f)), h, s, v);
     return otGlareExtractHighlightV(v, gp.threshold, gp.maxBrightness, gp.smoothness, gp.clampEnabled);
@@ -121,7 +118,7 @@ __device__ float otGlareSmoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-__device__ float otGlareCoreWeight(float highlightAmt, const OpenTextureGlareParamsCuda& gp) {
+__device__ float otGlareCoreWeight(float highlightAmt, const LSPOpenTextureGlareParamsHost& gp) {
     if (highlightAmt <= 1.0e-6f)
         return 0.0f;
     const float exposure = gp.exposure;
@@ -142,7 +139,7 @@ __device__ float otGlareCoreWeight(float highlightAmt, const OpenTextureGlarePar
     return core;
 }
 
-__device__ float3 otGlareApplyExposureShift(float3 bloomDelta, float3 inputLin, const OpenTextureGlareParamsCuda& gp) {
+__device__ float3 otGlareApplyExposureShift(float3 bloomDelta, float3 inputLin, const LSPOpenTextureGlareParamsHost& gp) {
     if (fabsf(gp.exposure - 1.0f) < 1.0e-5f)
         return bloomDelta;
     const float highlightAmt = otGlareHighlightAmount(inputLin, gp);
@@ -164,7 +161,7 @@ __global__ void otGlareDecodeStridedToPacked(const float* __restrict__ srcStride
     otWritePackedRGB(rgbLinPacked, p.width, x, y, lin);
 }
 
-__global__ void otGlareHighlights(const float* __restrict__ inputPacked, float* __restrict__ outputPacked, OpenTextureGlareParamsCuda gp,
+__global__ void otGlareHighlights(const float* __restrict__ inputPacked, float* __restrict__ outputPacked, LSPOpenTextureGlareParamsHost gp,
                                   OpenTextureCudaParams p) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -175,10 +172,6 @@ __global__ void otGlareHighlights(const float* __restrict__ inputPacked, float* 
     if (gp.quality == kGlareQualityHigh) {
         const float fx = (static_cast<float>(x) + 0.5f) * static_cast<float>(p.width) / static_cast<float>(gp.highlightsWidth) - 0.5f;
         const float fy = (static_cast<float>(y) + 0.5f) * static_cast<float>(p.height) / static_cast<float>(gp.highlightsHeight) - 0.5f;
-        color = otSamplePackedBilinear(inputPacked, p.width, p.height, fx, fy);
-    } else if (gp.quality == kGlareQualityMedium) {
-        const float fx = (static_cast<float>(x) * 2.0f + 1.0f) / static_cast<float>(p.width) - 0.5f;
-        const float fy = (static_cast<float>(y) * 2.0f + 1.0f) / static_cast<float>(p.height) - 0.5f;
         color = otSamplePackedBilinear(inputPacked, p.width, p.height, fx, fy);
     } else {
         const float llx = (static_cast<float>(x) * 4.0f + 1.0f) / static_cast<float>(p.width) - 0.5f;
@@ -300,7 +293,7 @@ __global__ void otGlareHalfResUp(int ow, int oh, int inW, int inH, const float* 
 }
 
 __global__ void otGlareMixEncode(const float* __restrict__ glarePacked, int glareW, int glareH, const float* __restrict__ baseStrided,
-                                 float* __restrict__ dstStrided, OpenTextureGlareParamsCuda gp, OpenTextureCudaParams p) {
+                                 float* __restrict__ dstStrided, LSPOpenTextureGlareParamsHost gp, OpenTextureCudaParams p) {
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= p.width || y >= p.height)
@@ -375,7 +368,7 @@ cudaError_t otLaunchGlareDecodeStridedToPacked(const float* srcStrided, float* r
     return cudaGetLastError();
 }
 
-cudaError_t otLaunchGlareHighlights(const float* inputPacked, float* outputPacked, const OpenTextureGlareParamsCuda& gp,
+cudaError_t otLaunchGlareHighlights(const float* inputPacked, float* outputPacked, const LSPOpenTextureGlareParamsHost& gp,
                                     OpenTextureCudaParams p, cudaStream_t stream) {
     otGlareHighlights<<<otGrid2D(gp.highlightsWidth, gp.highlightsHeight), otBlock2D(), 0, stream>>>(inputPacked, outputPacked, gp, p);
     return cudaGetLastError();
@@ -402,7 +395,7 @@ cudaError_t otLaunchGlareHalfResUp(int ow, int oh, int inW, int inH, const float
 }
 
 cudaError_t otLaunchGlareMixEncode(const float* glarePacked, int glareW, int glareH, int frameW, int frameH, const float* baseStrided,
-                                   float* dstStrided, const OpenTextureGlareParamsCuda& gp, OpenTextureCudaParams p, cudaStream_t stream) {
+                                   float* dstStrided, const LSPOpenTextureGlareParamsHost& gp, OpenTextureCudaParams p, cudaStream_t stream) {
     (void)frameW;
     (void)frameH;
     otGlareMixEncode<<<otGrid2D(p.width, p.height), otBlock2D(), 0, stream>>>(glarePacked, glareW, glareH, baseStrided, dstStrided, gp, p);

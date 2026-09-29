@@ -122,10 +122,10 @@ $(BUILDDIR)/LSPOpenTexturePresetDialogs.o: plugin/metal/LSPOpenTexturePresetDial
 $(BUILDDIR)/LSPOpenTextureTfMapping.o: plugin/core/LSPOpenTextureTfMapping.cpp plugin/core/LSPOpenTextureTfMapping.h | $(BUILDDIR)
 	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
-$(BUILDDIR)/LSPOpenTextureGamut.o: plugin/core/LSPOpenTextureGamut.cpp plugin/core/LSPOpenTextureGamut.h plugin/core/LSPOpenTextureMetalParams.h | $(BUILDDIR)
+$(BUILDDIR)/LSPOpenTextureGamut.o: plugin/core/LSPOpenTextureGamut.cpp plugin/core/LSPOpenTextureGamut.h plugin/core/LSPOpenTextureHostParams.h | $(BUILDDIR)
 	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
-$(BUILDDIR)/LSPOpenTextureMetal.o: plugin/metal/LSPOpenTextureMetal.mm plugin/metal/LSPOpenTextureMetal.h plugin/metal/LSPOpenTextureFreqEQBridge.h plugin/metal/LSPOpenTextureGlareBridge.h plugin/core/LSPOpenTextureTfMapping.h plugin/core/LSPOpenTextureGamut.h plugin/core/LSPOpenTextureMetalParams.h | $(BUILDDIR)
+$(BUILDDIR)/LSPOpenTextureMetal.o: plugin/metal/LSPOpenTextureMetal.mm plugin/metal/LSPOpenTextureMetal.h plugin/metal/LSPOpenTextureFreqEQBridge.h plugin/metal/LSPOpenTextureGlareBridge.h plugin/core/LSPOpenTextureTfMapping.h plugin/core/LSPOpenTextureGamut.h plugin/core/LSPOpenTextureHostParams.h | $(BUILDDIR)
 	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
 $(BUILDDIR)/LSPOpenTextureFreqEQBridge.o: plugin/metal/LSPOpenTextureFreqEQBridge.mm plugin/metal/LSPOpenTextureFreqEQBridge.h | $(BUILDDIR)
@@ -134,14 +134,14 @@ $(BUILDDIR)/LSPOpenTextureFreqEQBridge.o: plugin/metal/LSPOpenTextureFreqEQBridg
 $(BUILDDIR)/LSPOpenTextureGlareBridge.o: plugin/metal/LSPOpenTextureGlareBridge.mm plugin/metal/LSPOpenTextureGlareBridge.h | $(BUILDDIR)
 	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
-$(BUILDDIR)/LSPOpenTextureMetal.air: plugin/metal/LSPOpenTextureMetal.metal | $(BUILDDIR)
-	xcrun -sdk macosx metal -c $< -o $@ -Iplugin/metal
+$(BUILDDIR)/LSPOpenTextureMetal.air: plugin/metal/LSPOpenTextureMetal.metal plugin/core/LSPOpenTextureTransfers.inc | $(BUILDDIR)
+	xcrun -sdk macosx metal -c $< -o $@ -Iplugin/metal -Iplugin/core
 
-$(BUILDDIR)/LSPOpenTextureFreqEQ.air: plugin/metal/LSPOpenTextureFreqEQ.metal | $(BUILDDIR)
-	xcrun -sdk macosx metal -c $< -o $@ -Iplugin/metal
+$(BUILDDIR)/LSPOpenTextureFreqEQ.air: plugin/metal/LSPOpenTextureFreqEQ.metal plugin/core/LSPOpenTextureTransfers.inc | $(BUILDDIR)
+	xcrun -sdk macosx metal -c $< -o $@ -Iplugin/metal -Iplugin/core
 
-$(BUILDDIR)/LSPOpenTextureGlare.air: plugin/metal/LSPOpenTextureGlare.metal | $(BUILDDIR)
-	xcrun -sdk macosx metal -c $< -o $@ -Iplugin/metal
+$(BUILDDIR)/LSPOpenTextureGlare.air: plugin/metal/LSPOpenTextureGlare.metal plugin/core/LSPOpenTextureTransfers.inc | $(BUILDDIR)
+	xcrun -sdk macosx metal -c $< -o $@ -Iplugin/metal -Iplugin/core
 
 $(METAL_LIB): $(METAL_AIR) | $(BUILDDIR)
 	xcrun -sdk macosx metallib $(METAL_AIR) -o $@

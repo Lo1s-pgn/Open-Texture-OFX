@@ -1,6 +1,15 @@
 #pragma once
 
 #include <cmath>
+#include <cstddef>
+
+inline size_t openTextureBlurPackedBytes(int width, int height) {
+    return static_cast<size_t>(width) * static_cast<size_t>(height) * 4u * sizeof(float);
+}
+
+inline size_t openTextureBlurScalarBytes(int width, int height) {
+    return static_cast<size_t>(width) * static_cast<size_t>(height) * sizeof(float);
+}
 
 inline void fillVanVlietCoeffsFromRadius(int radius, float coeffs[4]) {
     const double m0 = 1.16680;

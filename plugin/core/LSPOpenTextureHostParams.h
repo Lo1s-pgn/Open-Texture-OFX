@@ -1,8 +1,7 @@
 #pragma once
 
-#include "LSPOpenTextureEffectWindow.h"
-
-struct LSPOpenTextureMetalParamsHost {
+// Host/CUDA shared POD. Metal OpenTextureMetalParams must match field order.
+struct LSPOpenTextureHostParams {
     float distribution;
     int inputTransferFunction;
     int workingTransferFunction;
@@ -26,7 +25,11 @@ struct LSPOpenTextureMetalParamsHost {
     int effectWindowShowBorder;
 };
 
-inline void fillOpenTextureMetalEffectWindow(LSPOpenTextureMetalParamsHost& p, const LSPOpenTextureEffectWindowGeo& geo, bool enabled, bool showBorder) {
+#if !defined(__CUDACC__)
+#include "LSPOpenTextureEffectWindow.h"
+
+inline void fillOpenTextureHostEffectWindow(LSPOpenTextureHostParams& p, const LSPOpenTextureEffectWindowGeo& geo, bool enabled,
+                                           bool showBorder) {
     p.effectWindowEnabled = enabled ? 1 : 0;
     p.effectWindowLeft = geo.overlayLeft;
     p.effectWindowTop = geo.overlayTop;
@@ -34,3 +37,4 @@ inline void fillOpenTextureMetalEffectWindow(LSPOpenTextureMetalParamsHost& p, c
     p.effectWindowHeight = geo.overlayHeight;
     p.effectWindowShowBorder = (enabled && showBorder) ? 1 : 0;
 }
+#endif

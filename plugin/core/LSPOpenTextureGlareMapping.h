@@ -41,14 +41,6 @@ inline float nitsToLinear(float nits) {
     return clampHighlightsNits(nits) / kNitsPerLinear;
 }
 
-inline float uiToMaxHighlightsNits(float ui) {
-    return uiToHighlightsNits(ui);
-}
-
-inline float nitsToMaxBrightness(float nits) {
-    return nitsToLinear(nits);
-}
-
 inline float defaultMinHighlightsUi() {
     return kMinHighlightsUiDefault;
 }
@@ -65,12 +57,13 @@ inline float defaultMaxHighlightsNits() {
     return uiToHighlightsNits(kMaxHighlightsUiDefault);
 }
 
-inline float defaultThresholdUi() {
-    return defaultMinHighlightsUi();
-}
-
 inline float uiToThreshold(float ui) {
     return nitsToLinear(uiToHighlightsNits(ui));
+}
+
+inline bool isIdentity(bool enable, float globalBlend, float strength) {
+    constexpr float kEps = 1.0e-5f;
+    return !enable || globalBlend <= kEps || strength <= kEps;
 }
 
 inline float defaultSpreadUi() {

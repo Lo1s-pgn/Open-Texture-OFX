@@ -1,6 +1,5 @@
 #pragma once
 #include <chrono>
-#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
@@ -9,9 +8,6 @@
 #include <mutex>
 #include <string>
 #include <filesystem>
-#if !defined(_WIN32)
-#include <sys/stat.h>
-#endif
 #if defined(__APPLE__) || defined(__unix__)
 #include <limits.h>
 #include <sys/utsname.h>
@@ -54,7 +50,6 @@ inline std::string sanitizePathForLog(const std::string& p) {
 }
 
 inline bool ensureLogDirectoryExists(const std::string& logPath) {
-#if defined(_WIN32)
     size_t last = logPath.find_last_of("\\/");
     if (last == std::string::npos)
         return true;
@@ -62,25 +57,6 @@ inline bool ensureLogDirectoryExists(const std::string& logPath) {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     return !ec;
-#else
-    size_t last = logPath.find_last_of('/');
-    if (last == std::string::npos)
-        return true;
-    std::string dir = logPath.substr(0, last);
-    struct stat st;
-    if (stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
-        return true;
-    size_t pos = 0;
-    for (;;) {
-        pos = dir.find('/', pos + 1);
-        if (pos == std::string::npos)
-            break;
-        std::string sub = dir.substr(0, pos);
-        if (mkdir(sub.c_str(), 0755) != 0 && errno != EEXIST)
-            return false;
-    }
-    return (mkdir(dir.c_str(), 0755) == 0 || errno == EEXIST);
-#endif
 }
 
 inline std::string getTimestamp(const char* fmt = "%Y-%m-%d %H:%M:%S") {

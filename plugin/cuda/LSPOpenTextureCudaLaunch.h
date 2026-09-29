@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 
 #include "LSPOpenTextureCudaCommon.cuh"
-#include "LSPOpenTextureGlareCudaParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 
 cudaError_t otLaunchPreprocessPacked(const float* src, float* pre, const OpenTextureCudaParams& p, cudaStream_t stream);
 cudaError_t otLaunchCompositePacked(const float* src, const float* blurred, float* dst, const OpenTextureCudaParams& p, cudaStream_t stream);
@@ -23,14 +23,14 @@ cudaError_t otLaunchBilinearDownscaleRGBA(int sw, int sh, int dw, int dh, const 
 cudaError_t otLaunchBilinearUpscaleRGBA(int sw, int sh, int dw, int dh, const float* src, float* dst, cudaStream_t stream);
 
 cudaError_t otLaunchGlareDecodeStridedToPacked(const float* srcStrided, float* rgbLinPacked, OpenTextureCudaParams p, cudaStream_t stream);
-cudaError_t otLaunchGlareHighlights(const float* inputPacked, float* outputPacked, const OpenTextureGlareParamsCuda& gp,
+cudaError_t otLaunchGlareHighlights(const float* inputPacked, float* outputPacked, const LSPOpenTextureGlareParamsHost& gp,
                                     OpenTextureCudaParams p, cudaStream_t stream);
 cudaError_t otLaunchGlareCopyPacked(int w, int h, const float* src, float* dst, cudaStream_t stream);
 cudaError_t otLaunchGlareLerpPacked(int w, int h, const float* a, const float* b, float* dst, float blend, cudaStream_t stream);
 cudaError_t otLaunchGlareBloomUp(int ow, int oh, int iw, int ih, const float* inputPacked, float* outputPacked, cudaStream_t stream);
 cudaError_t otLaunchGlareHalfResUp(int ow, int oh, int inW, int inH, const float* inputPacked, float* outputPacked, cudaStream_t stream);
 cudaError_t otLaunchGlareMixEncode(const float* glarePacked, int glareW, int glareH, int frameW, int frameH, const float* baseStrided,
-                                   float* dstStrided, const OpenTextureGlareParamsCuda& gp, OpenTextureCudaParams p, cudaStream_t stream);
+                                   float* dstStrided, const LSPOpenTextureGlareParamsHost& gp, OpenTextureCudaParams p, cudaStream_t stream);
 
 cudaError_t otLaunchDecodeStridedRgbToL(const float* srcStrided, float* rgbLinPacked, float* lSource,
                                         const OpenTextureCudaParams& p, cudaStream_t stream);

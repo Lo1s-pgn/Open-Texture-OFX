@@ -2,14 +2,14 @@
 
 #include <cuda_runtime.h>
 
-#include "../core/LSPOpenTextureMetalParams.h"
-#include "../metal/LSPOpenTextureGlareParams.h"
+#include "../core/LSPOpenTextureHostParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 
 namespace LSPOpenTextureGlareCuda {
 
 bool EncodeCuda(
     float* dstStrided,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const LSPOpenTextureGlareParamsHost& glare,
     float globalBlend,
     cudaStream_t stream);

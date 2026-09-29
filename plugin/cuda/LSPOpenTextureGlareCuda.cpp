@@ -1,11 +1,9 @@
 #include "LSPOpenTextureGlareCuda.h"
 #include "LSPOpenTextureCudaLaunch.h"
-#include "LSPOpenTextureCudaParams.h"
-#include "LSPOpenTextureGlareCudaParams.h"
 
 #include "../core/LSPOpenTextureGlareMapping.h"
 #include "../core/LSPOpenTextureLog.h"
-#include "../metal/LSPOpenTextureGlareParams.h"
+#include "../core/LSPOpenTextureGlareParams.h"
 
 #include <algorithm>
 #include <atomic>
@@ -14,30 +12,6 @@
 #include <vector>
 
 namespace {
-
-OpenTextureGlareParamsCuda toCudaGlare(const LSPOpenTextureGlareParamsHost& host) {
-    OpenTextureGlareParamsCuda gp{};
-    gp.threshold = host.threshold;
-    gp.smoothness = host.smoothness;
-    gp.maxBrightness = host.maxBrightness;
-    gp.quality = host.quality;
-    gp.qualityFactor = host.qualityFactor;
-    gp.spread = host.spread;
-    gp.strength = host.strength;
-    gp.saturation = host.saturation;
-    gp.temperature = host.temperature;
-    gp.exposure = host.exposure;
-    gp.glareAmount = host.glareAmount;
-    gp.bloomBlurSigma = host.bloomBlurSigma;
-    gp.chainLength = host.chainLength;
-    gp.chainLengthAlt = host.chainLengthAlt;
-    gp.chainBlend = host.chainBlend;
-    gp.clampEnabled = host.clampEnabled;
-    gp.displayMode = host.displayMode;
-    gp.highlightsWidth = host.highlightsWidth;
-    gp.highlightsHeight = host.highlightsHeight;
-    return gp;
-}
 
 struct GlareCudaScratch {
     float* rgbLinFull = nullptr;
@@ -277,7 +251,7 @@ bool encodeGlareUpscaleToFull(float* src, int srcW, int srcH, float* dst, int ds
 
 namespace LSPOpenTextureGlareCuda {
 
-bool EncodeCuda(float* dstStrided, const LSPOpenTextureMetalParamsHost& io, const LSPOpenTextureGlareParamsHost& glare, float globalBlend,
+bool EncodeCuda(float* dstStrided, const LSPOpenTextureHostParams& io, const LSPOpenTextureGlareParamsHost& glare, float globalBlend,
                 cudaStream_t stream) {
     std::lock_guard<std::mutex> lock(gGlareCudaMutex);
 
@@ -295,8 +269,8 @@ bool EncodeCuda(float* dstStrided, const LSPOpenTextureMetalParamsHost& io, cons
         return false;
     }
 
-    OpenTextureCudaParams p = toCudaParams(io);
-    OpenTextureGlareParamsCuda gp = toCudaGlare(glare);
+    OpenTextureCudaParams p = io;
+    LSPOpenTextureGlareParamsHost gp = glare;
 
     const bool needPre = glare.displayMode == LSPOpenTextureGlareMapping::kGlareDisplayRender && globalBlend < 1.0f - 1.0e-5f;
     const size_t regionBytes = static_cast<size_t>(io.height) * static_cast<size_t>(io.dstRowFloats) * sizeof(float);
@@ -319,7 +293,7 @@ bool EncodeCuda(float* dstStrided, const LSPOpenTextureMetalParamsHost& io, cons
     if (sourceOverlay) {
         if (!ensureGlareHighlightsFullRes(io.width, io.height))
             return false;
-        OpenTextureGlareParamsCuda gpFull = gp;
+        LSPOpenTextureGlareParamsHost gpFull = gp;
         gpFull.quality = 0;
         gpFull.qualityFactor = 1;
         gpFull.highlightsWidth = io.width;

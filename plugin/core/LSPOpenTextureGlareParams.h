@@ -1,9 +1,6 @@
 #pragma once
 
-#include <cmath>
-
-#include "../core/LSPOpenTextureGlareMapping.h"
-
+// Host/CUDA shared POD. Metal OpenTextureGlareParams must match field order.
 struct LSPOpenTextureGlareParamsHost {
     float threshold;
     float smoothness;
@@ -26,6 +23,11 @@ struct LSPOpenTextureGlareParamsHost {
     // bloomBlurSigma must stay last; older metallibs / host struct layout
     float bloomBlurSigma;
 };
+
+#if !defined(__CUDACC__)
+#include <cmath>
+
+#include "LSPOpenTextureGlareMapping.h"
 
 inline int openTextureGlareQualityFactor(int quality) {
     if (quality < 0)
@@ -92,7 +94,7 @@ inline void openTextureGlareBuildHostParams(
     out.smoothness = smoothness;
     out.maxBrightness =
         clampEnabled
-            ? LSPOpenTextureGlareMapping::nitsToMaxBrightness(LSPOpenTextureGlareMapping::uiToMaxHighlightsNits(maxHighlights))
+            ? LSPOpenTextureGlareMapping::nitsToLinear(LSPOpenTextureGlareMapping::uiToHighlightsNits(maxHighlights))
             : 1.0e6f;
     out.quality = quality;
     out.qualityFactor = qf;
@@ -111,3 +113,4 @@ inline void openTextureGlareBuildHostParams(
     out.highlightsWidth = hiW;
     out.highlightsHeight = hiH;
 }
+#endif

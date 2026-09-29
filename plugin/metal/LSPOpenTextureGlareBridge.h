@@ -4,7 +4,7 @@
 
 #include <cstddef>
 
-struct LSPOpenTextureMetalParamsHost;
+struct LSPOpenTextureHostParams;
 struct LSPOpenTextureGlareParamsHost;
 
 bool LSPOpenTextureGlare_EncodeToCommandBuffer(
@@ -12,7 +12,7 @@ bool LSPOpenTextureGlare_EncodeToCommandBuffer(
     id<MTLDevice> device,
     id<MTLBuffer> dstStrided,
     size_t dstOffset,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const LSPOpenTextureGlareParamsHost& glare,
     float globalBlend,
     id<MTLComputePipelineState> windowEdgeReplicateTexturePso,

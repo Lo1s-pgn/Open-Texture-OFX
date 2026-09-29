@@ -1,13 +1,12 @@
 #include "LSPOpenTextureFreqEQCuda.h"
 #include "LSPOpenTextureCudaLaunch.h"
-#include "LSPOpenTextureCudaParams.h"
 
 #include "../core/LSPOpenTextureConstants.h"
 #include "../core/LSPOpenTextureLog.h"
-#include "../core/LSPOpenTextureMetalParams.h"
+#include "../core/LSPOpenTextureHostParams.h"
 #include "../core/LSPOpenTextureMtfIdentity.h"
 #include "../core/LSPOpenTextureMtfPyramid.h"
-#include "../core/LSPOpenTextureTextureFormats.h"
+#include "../core/LSPOpenTextureVanVliet.h"
 
 #include <atomic>
 #include <cmath>
@@ -256,7 +255,7 @@ bool fqEncodePresplitBlurs(const float eq[6], int displaySwitch, cudaStream_t st
 bool fqEncodeFreqEQBody(
     float* srcStrided,
     float* dstStrided,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const float p_EQ[8],
     int p_Switch,
     int p_Grey,
@@ -299,7 +298,7 @@ bool fqEncodeFreqEQBody(
     if (cudaMemcpyAsync(gEq.eqBands, eqBands, sizeof(eqBands), cudaMemcpyHostToDevice, stream) != cudaSuccess)
         return false;
 
-    const OpenTextureCudaParams p = toCudaParams(io);
+    const OpenTextureCudaParams& p = io;
 
     if (otLaunchDecodeStridedRgbToL(srcStrided, gRes.originalLinear, gRes.lSource, p, stream) != cudaSuccess)
         return false;
@@ -353,7 +352,7 @@ bool LSPOpenTextureFreqEQ_IsIdentity(const float eq[8], int displaySwitch, float
 bool LSPOpenTextureFreqEQ_EncodeCuda(
     float* srcStrided,
     float* dstStrided,
-    const LSPOpenTextureMetalParamsHost& io,
+    const LSPOpenTextureHostParams& io,
     const float eq[8],
     int displaySwitch,
     int grey,
