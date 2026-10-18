@@ -56,7 +56,7 @@ jobs:
           name: LSP_Open_Texture_${{ steps.version.outputs.triplet }}_macos
           path: release/LSP_Open_Texture_${{ steps.version.outputs.triplet }}_macos/
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 1
 
       - name: macOS artifact summary
         if: success()
@@ -106,7 +106,7 @@ jobs:
           name: LSP_Open_Texture_${{ steps.version.outputs.triplet }}_windows
           path: release/LSP_Open_Texture_${{ steps.version.outputs.triplet }}_windows/
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 1
 
       - name: Windows artifact summary
         if: success()
