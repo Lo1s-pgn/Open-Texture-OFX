@@ -39,6 +39,7 @@ struct PresplitBlurCache {
     int height = 0;
     float* bandBlur[kPresplitBandCount] = {nullptr};
     float* pyramidSrc = nullptr;
+    float* pyramidSrc2 = nullptr;
     float* pyramidBlur = nullptr;
     float* blurScratchA = nullptr;
     float* blurScratchB = nullptr;
@@ -76,6 +77,10 @@ void fqReleaseBlurCache() {
     if (gBlur.pyramidSrc) {
         cudaFree(gBlur.pyramidSrc);
         gBlur.pyramidSrc = nullptr;
+    }
+    if (gBlur.pyramidSrc2) {
+        cudaFree(gBlur.pyramidSrc2);
+        gBlur.pyramidSrc2 = nullptr;
     }
     if (gBlur.pyramidBlur) {
         cudaFree(gBlur.pyramidBlur);
@@ -168,6 +173,10 @@ bool fqEnsurePresplitBlur(int width, int height, const float sigmas[kPresplitBan
         }
         if (cudaMalloc(reinterpret_cast<void**>(&gBlur.pyramidSrc), pyramidScalarBytes) != cudaSuccess)
             return false;
+        const size_t quarterBytes =
+            static_cast<size_t>(fqPyramidDim(width, 2)) * static_cast<size_t>(fqPyramidDim(height, 2)) * sizeof(float);
+        if (cudaMalloc(reinterpret_cast<void**>(&gBlur.pyramidSrc2), quarterBytes) != cudaSuccess)
+            return false;
         if (cudaMalloc(reinterpret_cast<void**>(&gBlur.pyramidBlur), pyramidScalarBytes) != cudaSuccess)
             return false;
         if (cudaMalloc(reinterpret_cast<void**>(&gBlur.blurScratchA), scalarBytes) != cudaSuccess)
@@ -227,26 +236,68 @@ void fqComputeBlurNeeded(const float eq[6], int displaySwitch, bool needBlur[kPr
     }
 }
 
-bool fqEncodeSingleBandBlur(int bandIndex, float sigma, cudaStream_t stream) {
-    const PyramidPlan plan = fqPyramidPlan(sigma, bandIndex);
-    return blurScalar_VanVliet(gBlur.bandBlur[bandIndex], gRes.lSource, gBlur.width, gBlur.height, plan.mpsSigma, gBlur.blurScratchA,
-                               gBlur.blurScratchB, gBlur.pyramidSrc, gBlur.pyramidBlur, plan.levels, stream) == cudaSuccess;
+bool fqDownsampleLevel(int levels, float* dst, cudaStream_t stream) {
+    int pw = gBlur.width;
+    int ph = gBlur.height;
+    for (int i = 0; i < levels; ++i) {
+        pw = std::max((pw + 1) / 2, 1);
+        ph = std::max((ph + 1) / 2, 1);
+    }
+    return otLaunchBilinearDownscaleScalar(gBlur.width, gBlur.height, pw, ph, gRes.lSource, dst, stream) == cudaSuccess;
 }
 
 bool fqEncodePresplitBlurs(const float eq[6], int displaySwitch, cudaStream_t stream) {
     bool needBlur[kPresplitBandCount];
     fqComputeBlurNeeded(eq, displaySwitch, needBlur);
 
+    int bandLevel[kPresplitBandCount];
+    float bandMpsSigma[kPresplitBandCount];
+    bool wantLevel[3] = {false, false, false};
     bool any = false;
+    for (int i = 0; i < kPresplitBandCount; ++i) {
+        bandLevel[i] = 1;
+        bandMpsSigma[i] = 0.0f;
+        if (!needBlur[i])
+            continue;
+        const PyramidPlan plan = fqPyramidPlan(gBlur.sigma[i], i);
+        int levels = plan.levels;
+        if (levels < 1)
+            levels = 1;
+        else if (levels > 2)
+            levels = 2;
+        bandLevel[i] = levels;
+        bandMpsSigma[i] = plan.mpsSigma;
+        wantLevel[levels] = true;
+        any = true;
+    }
+    if (!any && displaySwitch == 0) {
+        const PyramidPlan plan = fqPyramidPlan(gBlur.sigma[5], 5);
+        int levels = plan.levels;
+        if (levels < 1)
+            levels = 1;
+        else if (levels > 2)
+            levels = 2;
+        needBlur[5] = true;
+        bandLevel[5] = levels;
+        bandMpsSigma[5] = plan.mpsSigma;
+        wantLevel[levels] = true;
+        any = true;
+    }
+    if (!any)
+        return true;
+
+    // une seule fois
+    if (wantLevel[1] && !fqDownsampleLevel(1, gBlur.pyramidSrc, stream))
+        return false;
+    if (wantLevel[2] && !fqDownsampleLevel(2, gBlur.pyramidSrc2, stream))
+        return false;
+
     for (int i = 0; i < kPresplitBandCount; ++i) {
         if (!needBlur[i])
             continue;
-        any = true;
-        if (!fqEncodeSingleBandBlur(i, gBlur.sigma[i], stream))
-            return false;
-    }
-    if (!any && displaySwitch == 0) {
-        if (!fqEncodeSingleBandBlur(5, gBlur.sigma[5], stream))
+        float* src = bandLevel[i] == 2 ? gBlur.pyramidSrc2 : gBlur.pyramidSrc;
+        if (blurScalar_VanVlietFromPrepared(gBlur.bandBlur[i], src, gBlur.width, gBlur.height, bandMpsSigma[i], bandLevel[i],
+                                            gBlur.blurScratchA, gBlur.blurScratchB, gBlur.pyramidBlur, stream) != cudaSuccess)
             return false;
     }
     return true;

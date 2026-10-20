@@ -116,6 +116,8 @@ struct PresplitMpsCache {
     id<MTLTexture> bandBlur[kPresplitBandCount] = {nil};
     id<MTLTexture> pyramidSrc = nil;
     id<MTLTexture> pyramidBlur = nil;
+    id<MTLTexture> pyramidSrc2 = nil;
+    id<MTLTexture> pyramidBlur2 = nil;
     MPSImageGaussianBlur* blur[kPresplitBandCount] = {nil};
     MPSImageBilinearScale* bilinearScale = nil;
     float sigma[kPresplitBandCount] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
@@ -164,8 +166,12 @@ static void fqRgbReleaseMpsCache(void) {
     gMps.lSource = nil;
     fqReleaseIfNonNil(gMps.pyramidSrc);
     fqReleaseIfNonNil(gMps.pyramidBlur);
+    fqReleaseIfNonNil(gMps.pyramidSrc2);
+    fqReleaseIfNonNil(gMps.pyramidBlur2);
     gMps.pyramidSrc = nil;
     gMps.pyramidBlur = nil;
+    gMps.pyramidSrc2 = nil;
+    gMps.pyramidBlur2 = nil;
     fqReleaseIfNonNil(gMps.bilinearScale);
     gMps.bilinearScale = nil;
     fqReleasePyramidBlurOps();
@@ -423,44 +429,81 @@ static void fqComputeBlurNeeded(const float eq[6], int displaySwitch, bool needB
     }
 }
 
-static bool fqEncodeSingleBandBlur(id<MTLCommandBuffer> cmd, id<MTLDevice> device, int bandIndex, float sigma) {
-    const PyramidPlan plan = fqPyramidPlan(sigma, bandIndex);
-    MPSImageGaussianBlur* pyramidOp = fqGetPyramidBlurOp(device, plan.mpsSigma);
-    if (pyramidOp == nil)
-        return false;
-    const NSUInteger pw = fqPyramidDim(gMps.width, plan.levels);
-    const NSUInteger ph = fqPyramidDim(gMps.height, plan.levels);
-    if (gMps.pyramidSrc.width != pw || gMps.pyramidSrc.height != ph) {
-        fqReleaseIfNonNil(gMps.pyramidSrc);
-        fqReleaseIfNonNil(gMps.pyramidBlur);
-        gMps.pyramidSrc = makeR32FPrivate(device, pw, ph);
-        gMps.pyramidBlur = makeR32FPrivate(device, pw, ph);
-        if (gMps.pyramidSrc == nil || gMps.pyramidBlur == nil)
-            return false;
-    }
-    [gMps.bilinearScale encodeToCommandBuffer:cmd sourceTexture:gMps.lSource destinationTexture:gMps.pyramidSrc];
-    [pyramidOp encodeToCommandBuffer:cmd sourceTexture:gMps.pyramidSrc destinationTexture:gMps.pyramidBlur];
-    [gMps.bilinearScale encodeToCommandBuffer:cmd sourceTexture:gMps.pyramidBlur destinationTexture:gMps.bandBlur[bandIndex]];
-    return true;
+static bool fqEnsurePyramidSlot(id<MTLDevice> device, int levels, id<MTLTexture>* src, id<MTLTexture>* blur) {
+    const NSUInteger pw = fqPyramidDim(gMps.width, levels);
+    const NSUInteger ph = fqPyramidDim(gMps.height, levels);
+    if (*src != nil && (*src).width == pw && (*src).height == ph && *blur != nil && (*blur).width == pw && (*blur).height == ph)
+        return true;
+    fqReleaseIfNonNil(*src);
+    fqReleaseIfNonNil(*blur);
+    *src = makeR32FPrivate(device, pw, ph);
+    *blur = makeR32FPrivate(device, pw, ph);
+    return *src != nil && *blur != nil;
 }
 
 static bool fqEncodePresplitBlurs(id<MTLCommandBuffer> cmd, const float eq[6], int displaySwitch) {
-    if (cmd == nil || gMps.lSource == nil)
+    if (cmd == nil || gMps.lSource == nil || gMps.bilinearScale == nil)
         return false;
     bool needBlur[kPresplitBandCount];
     fqComputeBlurNeeded(eq, displaySwitch, needBlur);
 
+    int bandLevel[kPresplitBandCount];
+    float bandMpsSigma[kPresplitBandCount];
+    bool wantLevel[3] = {false, false, false};
     bool any = false;
+    for (int i = 0; i < kPresplitBandCount; ++i) {
+        bandLevel[i] = 1;
+        bandMpsSigma[i] = 0.0f;
+        if (!needBlur[i])
+            continue;
+        const PyramidPlan plan = fqPyramidPlan(gMps.sigma[i], i);
+        int levels = plan.levels;
+        if (levels < 1)
+            levels = 1;
+        else if (levels > 2)
+            levels = 2;
+        bandLevel[i] = levels;
+        bandMpsSigma[i] = plan.mpsSigma;
+        wantLevel[levels] = true;
+        any = true;
+    }
+    if (!any && displaySwitch == 0) {
+        const PyramidPlan plan = fqPyramidPlan(gMps.sigma[5], 5);
+        int levels = plan.levels;
+        if (levels < 1)
+            levels = 1;
+        else if (levels > 2)
+            levels = 2;
+        needBlur[5] = true;
+        bandLevel[5] = levels;
+        bandMpsSigma[5] = plan.mpsSigma;
+        wantLevel[levels] = true;
+        any = true;
+    }
+    if (!any)
+        return true;
+
+    id<MTLDevice> device = cmd.device;
+    if (wantLevel[1] && !fqEnsurePyramidSlot(device, 1, &gMps.pyramidSrc, &gMps.pyramidBlur))
+        return false;
+    if (wantLevel[2] && !fqEnsurePyramidSlot(device, 2, &gMps.pyramidSrc2, &gMps.pyramidBlur2))
+        return false;
+    if (wantLevel[1])
+        [gMps.bilinearScale encodeToCommandBuffer:cmd sourceTexture:gMps.lSource destinationTexture:gMps.pyramidSrc];
+    if (wantLevel[2])
+        [gMps.bilinearScale encodeToCommandBuffer:cmd sourceTexture:gMps.lSource destinationTexture:gMps.pyramidSrc2];
+
     for (int i = 0; i < kPresplitBandCount; ++i) {
         if (!needBlur[i])
             continue;
-        any = true;
-        if (!fqEncodeSingleBandBlur(cmd, cmd.device, i, gMps.sigma[i]))
+        const bool level2 = bandLevel[i] == 2;
+        id<MTLTexture> src = level2 ? gMps.pyramidSrc2 : gMps.pyramidSrc;
+        id<MTLTexture> tmp = level2 ? gMps.pyramidBlur2 : gMps.pyramidBlur;
+        MPSImageGaussianBlur* op = fqGetPyramidBlurOp(device, bandMpsSigma[i]);
+        if (op == nil || src == nil || tmp == nil || gMps.bandBlur[i] == nil)
             return false;
-    }
-    if (!any && displaySwitch == 0) {
-        if (!fqEncodeSingleBandBlur(cmd, cmd.device, 5, gMps.sigma[5]))
-            return false;
+        [op encodeToCommandBuffer:cmd sourceTexture:src destinationTexture:tmp];
+        [gMps.bilinearScale encodeToCommandBuffer:cmd sourceTexture:tmp destinationTexture:gMps.bandBlur[i]];
     }
     return true;
 }

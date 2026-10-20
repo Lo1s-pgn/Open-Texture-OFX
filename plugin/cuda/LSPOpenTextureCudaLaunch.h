@@ -10,6 +10,7 @@ cudaError_t otLaunchCompositePacked(const float* src, const float* blurred, floa
 cudaError_t otLaunchRegionCopy(const float* src, float* dst, const OpenTextureCudaParams& p, cudaStream_t stream);
 cudaError_t otLaunchGlobalBlend(const float* src, float* dst, const OpenTextureCudaParams& p, float mixEffect, cudaStream_t stream);
 cudaError_t otLaunchWindowEdgeReplicateDense(float* buf, const OpenTextureCudaParams& p, cudaStream_t stream);
+cudaError_t otLaunchWindowEdgeReplicateScalar(float* buf, const OpenTextureCudaParams& p, cudaStream_t stream);
 cudaError_t otLaunchWindowEdgeReplicateStrided(float* buf, const OpenTextureCudaParams& p, cudaStream_t stream);
 cudaError_t otLaunchWindowBlackMask(float* dst, const OpenTextureCudaParams& p, cudaStream_t stream);
 cudaError_t otLaunchWindowBorder(float* dst, const OpenTextureCudaParams& p, cudaStream_t stream);
@@ -18,6 +19,10 @@ cudaError_t blurRGBA_VanVliet(float* dst, const float* src, int width, int heigh
                               float* pyramidSrc, float* pyramidBlur, cudaStream_t stream);
 cudaError_t blurScalar_VanVliet(float* dst, const float* src, int width, int height, float sigma, float* scratchA, float* scratchB,
                                 float* pyramidSrc, float* pyramidBlur, int pyramidLevels, cudaStream_t stream);
+cudaError_t blurScalar_VanVlietFromPrepared(float* dstFull, const float* preparedSmall, int fullW, int fullH, float mpsSigma,
+                                            int pyramidLevels, float* scratchA, float* scratchB, float* pyramidBlur,
+                                            cudaStream_t stream);
+cudaError_t otLaunchBilinearDownscaleScalar(int sw, int sh, int dw, int dh, const float* src, float* dst, cudaStream_t stream);
 
 cudaError_t otLaunchBilinearDownscaleRGBA(int sw, int sh, int dw, int dh, const float* src, float* dst, cudaStream_t stream);
 cudaError_t otLaunchBilinearUpscaleRGBA(int sw, int sh, int dw, int dh, const float* src, float* dst, cudaStream_t stream);

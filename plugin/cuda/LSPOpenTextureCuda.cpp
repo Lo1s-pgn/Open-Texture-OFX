@@ -92,10 +92,10 @@ void releaseMtfPreCache(MtfPreCudaCache& cache) {
 bool ensureHalationScratch(HalationScratchCache& cache, int width, int height) {
     if (width <= 0 || height <= 0)
         return false;
-    const size_t packedBytes = openTextureBlurPackedBytes(width, height);
+    const size_t packedBytes = openTextureBlurScalarBytes(width, height);
     const int pw = std::max((width + 1) / 2, 1);
     const int ph = std::max((height + 1) / 2, 1);
-    const size_t pyramidBytes = openTextureBlurPackedBytes(pw, ph);
+    const size_t pyramidBytes = openTextureBlurScalarBytes(pw, ph);
     if (cache.preprocess && cache.width == width && cache.height == height && cache.packedBytes == packedBytes)
         return true;
     releaseHalationScratch(cache);
@@ -138,10 +138,10 @@ bool encodeGlobalBlend(float* src, float* dst, const OpenTextureCudaParams& io, 
     return otLaunchGlobalBlend(src, dst, io, g, stream) == cudaSuccess;
 }
 
-bool encodeWindowEdgeReplicateDense(float* buf, const OpenTextureCudaParams& io, cudaStream_t stream) {
+bool encodeWindowEdgeReplicateScalar(float* buf, const OpenTextureCudaParams& io, cudaStream_t stream) {
     if (!io.effectWindowEnabled)
         return true;
-    return otLaunchWindowEdgeReplicateDense(buf, io, stream) == cudaSuccess;
+    return otLaunchWindowEdgeReplicateScalar(buf, io, stream) == cudaSuccess;
 }
 
 bool encodeWindowEdgeReplicateStrided(float* buf, const OpenTextureCudaParams& io, cudaStream_t stream) {
@@ -162,8 +162,9 @@ bool encodeHalationBlur(HalationScratchCache& cache, int width, int height, floa
         return cudaMemcpyAsync(cache.blurScratchB, cache.preprocess, cache.packedBytes, cudaMemcpyDeviceToDevice, stream) == cudaSuccess;
     }
     const float sigma = LSPOpenTextureTfMapping::mpsSigmaFromSpread(spread);
-    return blurRGBA_VanVliet(cache.blurScratchB, cache.preprocess, width, height, sigma, cache.blurScratchA, cache.blurScratchB,
-                             cache.pyramidSrc, cache.pyramidBlur, stream) == cudaSuccess;
+    const int levels = openTextureUsePyramidBlur(sigma) ? 1 : 0;
+    return blurScalar_VanVliet(cache.blurScratchB, cache.preprocess, width, height, sigma, cache.blurScratchA, cache.blurScratchB,
+                               cache.pyramidSrc, cache.pyramidBlur, levels, stream) == cudaSuccess;
 }
 
 bool encodeMtfPost(float* dstBuffer, const OpenTextureCudaParams& io, const float mtfEq[8], int mtfDisplay, int mtfGrey, float mtfLumaBlend,
@@ -414,7 +415,7 @@ bool renderHost(
 
     if (otLaunchPreprocessPacked(halSrc, ctx.halation.preprocess, ph, stream) != cudaSuccess)
         return false;
-    if (!encodeWindowEdgeReplicateDense(ctx.halation.preprocess, ph, stream))
+    if (!encodeWindowEdgeReplicateScalar(ctx.halation.preprocess, ph, stream))
         return false;
     if (!encodeHalationBlur(ctx.halation, width, height, spread, stream))
         return false;

@@ -178,10 +178,11 @@ static void deferredReleaseOnCmd(id<MTLCommandBuffer> cmd, id obj) {
     }];
 }
 
+// composite only keeps the red blur
 static id<MTLTexture> makeBlurRGBATexture(id<MTLDevice> device, NSUInteger width, NSUInteger height) {
     if (device == nil || width < 1 || height < 1)
         return nil;
-    MTLTextureDescriptor* d = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float width:width height:height mipmapped:NO];
+    MTLTextureDescriptor* d = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR32Float width:width height:height mipmapped:NO];
     d.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
     d.storageMode = MTLStorageModePrivate;
     return [device newTextureWithDescriptor:d];

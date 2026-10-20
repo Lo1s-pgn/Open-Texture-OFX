@@ -8,17 +8,15 @@ __global__ void otPreprocessPackedKernel(const float* __restrict__ src, float* _
     if (x >= p.width || y >= p.height)
         return;
     const int iSrc = y * p.srcRowFloats + x * 4;
-    const int iPre = (y * p.width + x) * 4;
+    const int iPre = y * p.width + x;
     const float3 inRgb = make_float3(otSanitizeFinite(src[iSrc], 0.0f), otSanitizeFinite(src[iSrc + 1], 0.0f),
                                      otSanitizeFinite(src[iSrc + 2], 0.0f));
     const float gamma = otClampf(p.distribution, 0.6f, 1.0f);
     const float wp = otWhitepointForTf(p.workingTransferFunction);
     float3 lin = otHostToWorking(inRgb, p);
     lin = otScaleLinearForBlurDistribution(lin, gamma, wp, p.cieLumaCoeffs);
+    // rouge seul
     pre[iPre] = lin.x;
-    pre[iPre + 1] = lin.y;
-    pre[iPre + 2] = lin.z;
-    pre[iPre + 3] = 1.0f;
 }
 
 __global__ void otCompositePackedKernel(const float* __restrict__ src, const float* __restrict__ blurred, float* __restrict__ dst,
@@ -28,13 +26,12 @@ __global__ void otCompositePackedKernel(const float* __restrict__ src, const flo
     if (x >= p.width || y >= p.height)
         return;
     const int iSrc = y * p.srcRowFloats + x * 4;
-    const int iBlur = (y * p.width + x) * 4;
+    const int iBlur = y * p.width + x;
     const int iDst = y * p.dstRowFloats + x * 4;
     const float3 inRgb = make_float3(otSanitizeFinite(src[iSrc], 0.0f), otSanitizeFinite(src[iSrc + 1], 0.0f),
                                      otSanitizeFinite(src[iSrc + 2], 0.0f));
     const float srcA = otSanitizeFinite(src[iSrc + 3], 1.0f);
-    const float3 blurRgb = make_float3(otSanitizeFinite(blurred[iBlur], 0.0f), otSanitizeFinite(blurred[iBlur + 1], 0.0f),
-                                       otSanitizeFinite(blurred[iBlur + 2], 0.0f));
+    const float3 blurRgb = make_float3(otSanitizeFinite(blurred[iBlur], 0.0f), 0.0f, 0.0f);
     const float3 outRgb = otComposeTfHalation(inRgb, blurRgb, p);
     dst[iDst] = otSanitizeFinite(outRgb.x, inRgb.x);
     dst[iDst + 1] = otSanitizeFinite(outRgb.y, inRgb.y);
@@ -99,6 +96,24 @@ __global__ void otWindowEdgeReplicateDenseKernel(float* __restrict__ buf, OpenTe
     buf[di + 1] = buf[si + 1];
     buf[di + 2] = buf[si + 2];
     buf[di + 3] = buf[si + 3];
+}
+
+__global__ void otWindowEdgeReplicateScalarKernel(float* __restrict__ buf, OpenTextureCudaParams p) {
+    const int x = blockIdx.x * blockDim.x + threadIdx.x;
+    const int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= p.width || y >= p.height)
+        return;
+    if (p.effectWindowEnabled == 0 || otHalationInEffectWindow(x, y, p))
+        return;
+    const int x1 = static_cast<int>(floorf(p.effectWindowLeft));
+    const int y1 = static_cast<int>(floorf(p.effectWindowTop));
+    int x2 = static_cast<int>(ceilf(p.effectWindowLeft + p.effectWindowWidth));
+    int y2 = static_cast<int>(ceilf(p.effectWindowTop + p.effectWindowHeight));
+    x2 = max(x1 + 1, min(x2, p.width));
+    y2 = max(y1 + 1, min(y2, p.height));
+    const int cx = otHalationClampWindowCoord(x, x1, x2);
+    const int cy = otHalationClampWindowCoord(y, y1, y2);
+    buf[y * p.width + x] = buf[cy * p.width + cx];
 }
 
 __global__ void otWindowEdgeReplicateStridedKernel(float* __restrict__ buf, OpenTextureCudaParams p) {
@@ -186,6 +201,13 @@ cudaError_t otLaunchWindowEdgeReplicateDense(float* buf, const OpenTextureCudaPa
     const dim3 block(16, 16, 1);
     const dim3 grid(static_cast<unsigned>((p.width + 15) / 16), static_cast<unsigned>((p.height + 15) / 16), 1u);
     otWindowEdgeReplicateDenseKernel<<<grid, block, 0, stream>>>(buf, p);
+    return cudaGetLastError();
+}
+
+cudaError_t otLaunchWindowEdgeReplicateScalar(float* buf, const OpenTextureCudaParams& p, cudaStream_t stream) {
+    const dim3 block(16, 16, 1);
+    const dim3 grid(static_cast<unsigned>((p.width + 15) / 16), static_cast<unsigned>((p.height + 15) / 16), 1u);
+    otWindowEdgeReplicateScalarKernel<<<grid, block, 0, stream>>>(buf, p);
     return cudaGetLastError();
 }
 

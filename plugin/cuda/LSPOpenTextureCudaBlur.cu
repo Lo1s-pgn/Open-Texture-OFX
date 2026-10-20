@@ -209,3 +209,27 @@ cudaError_t blurScalar_VanVliet(float* dst, const float* src, int width, int hei
     OT_CUDA_CHECK(otLaunchBilinearUpscaleScalar(pw, ph, width, height, pyramidBlur, dst, stream));
     return cudaSuccess;
 }
+
+cudaError_t blurScalar_VanVlietFromPrepared(float* dstFull, const float* preparedSmall, int fullW, int fullH, float mpsSigma,
+                                            int pyramidLevels, float* scratchA, float* scratchB, float* pyramidBlur,
+                                            cudaStream_t stream) {
+    if (!dstFull || !preparedSmall || fullW <= 0 || fullH <= 0 || !scratchA || !scratchB)
+        return cudaErrorInvalidValue;
+    const float sigma = mpsSigma < 0.1f ? 0.1f : mpsSigma;
+    if (pyramidLevels <= 0)
+        return otVanVlietBlurScalarInternal(fullW, fullH, sigma, preparedSmall, dstFull, scratchA, scratchB, stream);
+    if (!pyramidBlur)
+        return cudaErrorInvalidValue;
+
+    int pw = fullW;
+    int ph = fullH;
+    float blurSigma = sigma;
+    for (int i = 0; i < pyramidLevels; ++i) {
+        pw = std::max((pw + 1) / 2, 1);
+        ph = std::max((ph + 1) / 2, 1);
+        blurSigma *= 0.5f;
+    }
+    OT_CUDA_CHECK(otVanVlietBlurScalarInternal(pw, ph, blurSigma, preparedSmall, pyramidBlur, scratchA, scratchB, stream));
+    OT_CUDA_CHECK(otLaunchBilinearUpscaleScalar(pw, ph, fullW, fullH, pyramidBlur, dstFull, stream));
+    return cudaSuccess;
+}
